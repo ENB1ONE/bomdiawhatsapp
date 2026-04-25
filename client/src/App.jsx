@@ -25,6 +25,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [status, setStatus] = useState({ isReady: false, qrCodeData: null });
   const [contacts, setContacts] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [settings, setSettings] = useState({
     morningPrompt: '',
     nightPrompt: '',
@@ -47,18 +48,23 @@ function App() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchStatus, 5000);
+    const interval = setInterval(() => {
+      fetchStatus();
+      fetchLogs();
+    }, 5000);
     return () => clearInterval(interval);
   }, [settings.apiUrl]);
 
   const fetchData = async () => {
     try {
-      const [contactsRes, settingsRes] = await Promise.all([
+      const [contactsRes, settingsRes, logsRes] = await Promise.all([
         axios.get(`${API_BASE}/contacts`),
-        axios.get(`${API_BASE}/settings`)
+        axios.get(`${API_BASE}/settings`),
+        axios.get(`${API_BASE}/logs`)
       ]);
       setContacts(contactsRes.data);
       setSettings(prev => ({ ...prev, ...settingsRes.data }));
+      setLogs(logsRes.data);
     } catch (err) {
       console.error('Error fetching data:', err);
     }
@@ -70,6 +76,15 @@ function App() {
       setStatus(res.data);
     } catch (err) {
       console.error('Error fetching status:', err);
+    }
+  };
+
+  const fetchLogs = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/logs`);
+      setLogs(res.data);
+    } catch (err) {
+      console.error('Error fetching logs:', err);
     }
   };
 
@@ -266,6 +281,50 @@ function App() {
                 <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                   <p style={{ fontSize: '3rem', fontWeight: 700 }}>{contacts.length}</p>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Contatos Ativos</p>
+                </div>
+              </section>
+            </div>
+
+            {/* Logs Section */}
+            <div className="col-12">
+              <section className="glass-card">
+                <div className="card-header">
+                  <h2><LayoutDashboard /> Histórico de Envios</h2>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {logs.length > 0 ? logs.map(log => (
+                    <div key={log.id} className="contact-row" style={{ padding: '0.75rem 1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        {log.status === 'success' ? (
+                          <CheckCircle2 size={18} color="var(--success)" />
+                        ) : (
+                          <XCircle size={18} color="var(--danger)" />
+                        )}
+                        <div>
+                          <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>
+                            Automação de {log.type === 'morning' ? 'Bom Dia' : 'Boa Noite'}
+                          </p>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {new Date(log.timestamp).toLocaleString('pt-BR')} • {log.details}
+                          </p>
+                        </div>
+                      </div>
+                      <span style={{ 
+                        fontSize: '0.6875rem', 
+                        fontWeight: 700, 
+                        padding: '0.25rem 0.5rem', 
+                        borderRadius: '4px',
+                        background: log.status === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        color: log.status === 'success' ? 'var(--success)' : 'var(--danger)'
+                      }}>
+                        {log.status.toUpperCase()}
+                      </span>
+                    </div>
+                  )) : (
+                    <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>
+                      <p>Nenhum envio registrado ainda.</p>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>

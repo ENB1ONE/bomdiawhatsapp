@@ -25,19 +25,15 @@ async function generateImage(prompt, type = "morning") {
         // Since the user asked for "Gemini 3 Flash Image", I will assume they want 
         // the latest multimodal capability.
         
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // or "gemini-2.0-flash-exp"
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
-        // If the model doesn't support direct image bytes output yet via public SDK:
-        // We might need to use a different approach.
-        // For now, I'll provide the structure and a placeholder if it fails.
-        
-        // REALITY CHECK: Google AI Studio doesn't expose Imagen 3 directly via the simple 'generateContent' 
-        // in the same way it does for text. It's often a different endpoint.
-        
-        // I will implement a "Smart Prompt" generator that ensures the prompt is descriptive.
-        const smartPromptResult = await model.generateContent(`Crie um prompt detalhado em inglês para geração de imagem baseado em: ${prompt}`);
+        // Timeout de 10 segundos para a IA não travar o robô
+        const smartPromptResult = await Promise.race([
+            model.generateContent(`Crie um prompt detalhado em inglês para geração de imagem baseado em: ${prompt}`),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Gemini')), 10000))
+        ]);
+
         const enhancedPrompt = smartPromptResult.response.text();
-        
         console.log("Enhanced Prompt:", enhancedPrompt);
 
         // Since I cannot guarantee the specific "Gemini 3 Flash Image" model availability 

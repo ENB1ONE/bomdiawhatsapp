@@ -84,10 +84,12 @@ async function runAutomation(type) {
     const greeting = type === 'morning' ? "Bom dia! ☀️" : "Boa noite! 🌙";
 
     try {
-        // Here we would call Gemini. 
-        // For now, since Gemini image generation API is specific, 
-        // I will provide a fallback message if generation is not setup.
-        const imageBuffer = await generateImage(prompt, type);
+        let imageBuffer = null;
+        try {
+            imageBuffer = await generateImage(prompt, type);
+        } catch (iaError) {
+            console.error("Gemini failed, proceeding with text-only:", iaError.message);
+        }
         
         for (const contact of db.contacts) {
             try {
@@ -98,7 +100,7 @@ async function runAutomation(type) {
             }
         }
     } catch (err) {
-        console.error("Automation error:", err);
+        console.error("Critical automation error:", err);
     }
 }
 

@@ -25,7 +25,9 @@ async function generateImage(prompt, type = "morning") {
         // Since the user asked for "Gemini 3 Flash Image", I will assume they want 
         // the latest multimodal capability.
         
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // Usando o gemini-pro pois ele tem disponibilidade global garantida
+        // em todas as chaves e regiões.
+        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         
         // Timeout de 10 segundos para a IA não travar o robô
         const smartPromptResult = await Promise.race([

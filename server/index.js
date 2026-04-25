@@ -1,0 +1,114 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const cron = require('node-cron');
+const fs = require('fs');
+const path = require('path');
+const { initWhatsApp, sendMessage, getStatus } = require('./services/whatsapp');
+const { generateImage } = require('./services/gemini');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors());
+app.use(bodyParser.json());
+
+const DB_PATH = path.join(__dirname, 'database.json');
+
+// Helper to read/write DB
+function getDB() {
+    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+}
+
+function saveDB(data) {
+    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+}
+
+// API Endpoints
+app.get('/status', (req, res) => {
+    res.json(getStatus());
+});
+
+app.get('/contacts', (req, res) => {
+    res.json(getDB().contacts);
+});
+
+app.post('/contacts', (req, res) => {
+    const { phone, name } = req.body;
+    const db = getDB();
+    db.contacts.push({ phone, name });
+    saveDB(db);
+    res.json({ success: true });
+});
+
+app.delete('/contacts/:phone', (req, res) => {
+    const { phone } = req.params;
+    const db = getDB();
+    db.contacts = db.contacts.filter(c => c.phone !== phone);
+    saveDB(db);
+    res.json({ success: true });
+});
+
+app.get('/settings', (req, res) => {
+    res.json(getDB().settings);
+});
+
+app.post('/settings', (req, res) => {
+    const db = getDB();
+    db.settings = { ...db.settings, ...req.body };
+    saveDB(db);
+    res.json({ success: true });
+});
+
+// Logic to run automation
+async function runAutomation(type) {
+    console.log(`Running ${type} automation...`);
+    const db = getDB();
+    const { morningPrompt, nightPrompt } = db.settings;
+    const prompt = type === 'morning' ? morningPrompt : nightPrompt;
+    const greeting = type === 'morning' ? "Bom dia! ☀️" : "Boa noite! 🌙";
+
+    try {
+        // Here we would call Gemini. 
+        // For now, since Gemini image generation API is specific, 
+        // I will provide a fallback message if generation is not setup.
+        const imageBuffer = await generateImage(prompt, type);
+        
+        for (const contact of db.contacts) {
+            try {
+                console.log(`Sending to ${contact.name} (${contact.phone})`);
+                await sendMessage(contact.phone, greeting, imageBuffer);
+            } catch (err) {
+                console.error(`Failed to send to ${contact.phone}:`, err);
+            }
+        }
+    } catch (err) {
+        console.error("Automation error:", err);
+    }
+}
+
+// Manual Trigger
+app.post('/test-now', async (req, res) => {
+    const { type } = req.body; // 'morning' or 'night'
+    runAutomation(type || 'morning');
+    res.json({ success: true, message: "Automation started manually" });
+});
+
+// Scheduling
+// Morning: 08:00
+cron.schedule('0 8 * * *', () => {
+    runAutomation('morning');
+});
+
+// Night: 20:00
+cron.schedule('0 20 * * *', () => {
+    runAutomation('night');
+});
+
+// Initialize WhatsApp
+initWhatsApp();
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

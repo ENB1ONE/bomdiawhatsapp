@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
@@ -7,7 +7,7 @@ const axios = require("axios");
 // Note: Direct image generation via the SDK might require specific models like 'imagen-3.0' 
 // or using Vertex AI. For Google AI Studio (API Key), check the latest documentation.
 // If direct generation is not available, this function serves as a wrapper.
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateImage(prompt, type = "morning") {
     try {

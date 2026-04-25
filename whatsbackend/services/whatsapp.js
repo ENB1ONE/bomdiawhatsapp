@@ -8,6 +8,17 @@ let qrCodeData = null;
 let isReady = false;
 
 function initWhatsApp(onQR) {
+    // Limpeza de travas do Chromium para evitar erro de "Profile in use"
+    const lockPath = path.join(process.cwd(), '.wwebjs_auth/session/SingletonLock');
+    if (fs.existsSync(lockPath)) {
+        try {
+            fs.unlinkSync(lockPath);
+            console.log('Antiga trava do Chromium removida com sucesso.');
+        } catch (err) {
+            console.error('Erro ao remover trava do Chromium:', err);
+        }
+    }
+
     client = new Client({
         authStrategy: new LocalAuth({
             dataPath: './.wwebjs_auth'

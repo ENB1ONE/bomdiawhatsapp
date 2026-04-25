@@ -1,3 +1,4 @@
+// WhatsApp AutoGreetings - Interface Principal para Gerenciamento de Automação
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';

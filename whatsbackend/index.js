@@ -16,6 +16,20 @@ app.use(bodyParser.json());
 
 const DB_PATH = path.join(__dirname, 'database.json');
 
+// Ensure database exists
+if (!fs.existsSync(DB_PATH)) {
+    const initialData = {
+        contacts: [],
+        settings: {
+            morningPrompt: "Uma bela imagem de bom dia, ensolarada, estilo fotorealista",
+            nightPrompt: "Uma imagem tranquila de boa noite, com lua cheia, estilo relaxante",
+            morningTime: "08:00",
+            nightTime: "20:00"
+        }
+    };
+    fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
+}
+
 // Helper to read/write DB
 function getDB() {
     return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));

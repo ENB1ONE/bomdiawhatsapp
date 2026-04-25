@@ -9,13 +9,18 @@ let isReady = false;
 
 function initWhatsApp(onQR) {
     // Limpeza de travas do Chromium para evitar erro de "Profile in use"
-    const lockPath = path.join(process.cwd(), '.wwebjs_auth/session/SingletonLock');
-    if (fs.existsSync(lockPath)) {
-        try {
-            fs.unlinkSync(lockPath);
-            console.log('Antiga trava do Chromium removida com sucesso.');
-        } catch (err) {
-            console.error('Erro ao remover trava do Chromium:', err);
+    const sessionPath = path.join(process.cwd(), '.wwebjs_auth/session');
+    if (fs.existsSync(sessionPath)) {
+        const files = fs.readdirSync(sessionPath);
+        for (const file of files) {
+            if (file.startsWith('Singleton')) {
+                try {
+                    fs.unlinkSync(path.join(sessionPath, file));
+                    console.log(`Antiga trava do Chromium (${file}) removida com sucesso.`);
+                } catch (err) {
+                    console.error(`Erro ao remover trava ${file}:`, err);
+                }
+            }
         }
     }
 

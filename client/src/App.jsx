@@ -31,12 +31,12 @@ function App() {
     nightPrompt: '',
     morningTime: '08:00',
     nightTime: '20:00',
-    apiUrl: 'http://localhost:3001'
+    apiUrl: 'https://api.servicesbr.duckdns.org'
   });
   const [newContact, setNewContact] = useState({ name: '', phone: '' });
   const [loading, setLoading] = useState(false);
 
-  const API_BASE = settings.apiUrl || 'http://localhost:3001';
+  const API_BASE = settings.apiUrl || 'https://api.servicesbr.duckdns.org';
 
   useEffect(() => {
     // Load API URL from localStorage if available

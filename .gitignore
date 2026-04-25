@@ -28,3 +28,7 @@ yarn-error.log*
 
 # Database (local)
 whatsbackend/database.json
+
+# WhatsApp Session
+whatsbackend/.wwebjs_auth/
+

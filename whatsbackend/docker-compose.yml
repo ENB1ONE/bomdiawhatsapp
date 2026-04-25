@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  whatsapp-back:
+    build: .
+    container_name: whatsapp-back
+    restart: unless-stopped
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+    volumes:
+      - ./.wwebjs_auth:/app/.wwebjs_auth
+    networks:
+      - npm_network
+
+networks:
+  npm_network:
+    external: true

@@ -1,0 +1,7 @@
+.wwebjs_auth
+node_modules
+database.json
+.env
+.git
+.gitignore
+*.md

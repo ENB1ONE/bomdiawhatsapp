@@ -16,10 +16,10 @@ app.use(bodyParser.json());
 
 const DB_PATH = path.join(__dirname, 'database.json');
 
-// Ensure database exists
 if (!fs.existsSync(DB_PATH)) {
     const initialData = {
         contacts: [],
+        logs: [],
         settings: {
             morningPrompt: "Uma bela imagem de bom dia, ensolarada, estilo fotorealista",
             nightPrompt: "Uma imagem tranquila de boa noite, com lua cheia, estilo relaxante",
@@ -32,11 +32,27 @@ if (!fs.existsSync(DB_PATH)) {
 
 // Helper to read/write DB
 function getDB() {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    if (!db.logs) db.logs = []; // Migration
+    return db;
 }
 
 function saveDB(data) {
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+}
+
+function addLog(type, status, details) {
+    const db = getDB();
+    db.logs.unshift({
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        type, // 'morning' or 'night'
+        status, // 'success' or 'error'
+        details
+    });
+    // Keep only last 50 logs
+    if (db.logs.length > 50) db.logs = db.logs.slice(0, 50);
+    saveDB(db);
 }
 
 // API Endpoints
@@ -75,6 +91,10 @@ app.post('/settings', (req, res) => {
     res.json({ success: true });
 });
 
+app.get('/logs', (req, res) => {
+    res.json(getDB().logs);
+});
+
 // Logic to run automation
 async function runAutomation(type) {
     console.log(`Running ${type} automation...`);
@@ -91,16 +111,24 @@ async function runAutomation(type) {
             console.error("Gemini failed, proceeding with text-only:", iaError.message);
         }
         
+        let successCount = 0;
+        let failCount = 0;
+
         for (const contact of db.contacts) {
             try {
                 console.log(`Sending to ${contact.name} (${contact.phone})`);
                 await sendMessage(contact.phone, greeting, imageBuffer);
+                successCount++;
             } catch (err) {
                 console.error(`Failed to send to ${contact.phone}:`, err);
+                failCount++;
             }
         }
+
+        addLog(type, 'success', `Enviado para ${successCount} contatos. Falhas: ${failCount}`);
     } catch (err) {
         console.error("Critical automation error:", err);
+        addLog(type, 'error', err.message);
     }
 }
 

@@ -10,11 +10,24 @@ let isReady = false;
 function initWhatsApp(onQR) {
     client = new Client({
         authStrategy: new LocalAuth({
-            dataPath: path.join(__dirname, '../../.wwebjs_auth')
+            dataPath: './.wwebjs_auth'
         }),
+        webVersionCache: {
+            type: 'remote',
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        },
         puppeteer: {
             headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu',
+                '--single-process' // Ajuda em ambientes com pouca CPU
+            ]
         }
     });
 

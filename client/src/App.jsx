@@ -29,8 +29,8 @@ function App() {
   const [contacts, setContacts] = useState([]);
   const [logs, setLogs] = useState([]);
   const [settings, setSettings] = useState({
-    morningPrompt: '',
-    nightPrompt: '',
+    morningPrompt: 'Aja como uma tia ou avó carinhosa, otimista e de muita fé. Gere uma mensagem de "Bom Dia" calorosa para o WhatsApp com palavras de encorajamento, saúde e esperança (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem matinal vibrante, iluminada e realista que traga paz. A imagem DEVE conter o texto "Bom Dia" de forma legível e artística.',
+    nightPrompt: 'Aja como uma tia ou avó carinhosa e de muita fé. Gere uma mensagem de "Boa Noite" serena para o WhatsApp com palavras de gratidão pelo dia, proteção e descanso (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem noturna aconchegante, com estrelas ou luz suave que traga tranquilidade. A imagem DEVE conter o texto "Boa Noite" de forma legível.',
     morningTime: '08:00',
     nightTime: '20:00',
     apiUrl: 'https://api.servicesbr.duckdns.org'

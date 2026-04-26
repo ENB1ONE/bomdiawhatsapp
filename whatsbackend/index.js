@@ -76,10 +76,25 @@ if (!fs.existsSync(DB_PATH)) {
     fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
 }
 
-// Helper to read/write DB
+const DEFAULT_MORNING = 'Aja como uma tia ou avó carinhosa, otimista e de muita fé. Gere uma mensagem de "Bom Dia" calorosa para o WhatsApp com palavras de encorajamento, saúde e esperança (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem matinal vibrante, iluminada e realista que traga paz. A imagem DEVE conter o texto "Bom Dia" de forma legível e artística.';
+const DEFAULT_NIGHT = 'Aja como uma tia ou avó carinhosa e de muita fé. Gere uma mensagem de "Boa Noite" serena para o WhatsApp com palavras de gratidão pelo dia, proteção e descanso (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem noturna aconchegante, com estrelas ou luz suave que traga tranquilidade. A imagem DEVE conter o texto "Boa Noite" de forma legível.';
+
 function getDB() {
     const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-    if (!db.logs) db.logs = []; // Migration
+    if (!db.logs) db.logs = [];
+    
+    // Migração automática para garantir os novos prompts ricos
+    let changed = false;
+    if (!db.settings.morningPrompt || db.settings.morningPrompt.length < 100) {
+        db.settings.morningPrompt = DEFAULT_MORNING;
+        changed = true;
+    }
+    if (!db.settings.nightPrompt || db.settings.nightPrompt.length < 100) {
+        db.settings.nightPrompt = DEFAULT_NIGHT;
+        changed = true;
+    }
+    
+    if (changed) saveDB(db);
     return db;
 }
 

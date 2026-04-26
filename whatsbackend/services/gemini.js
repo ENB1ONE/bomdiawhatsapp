@@ -60,7 +60,7 @@ async function generateImage(prompt, type = "morning") {
                         }`
                     }]
                 }]
-            }, { timeout: 15000 });
+            }, { timeout: 60000 });
 
             if (textResponse.data && textResponse.data.candidates && textResponse.data.candidates[0].content) {
                 const rawText = textResponse.data.candidates[0].content.parts[0].text;
@@ -82,7 +82,7 @@ async function generateImage(prompt, type = "morning") {
         // Agora vamos chamar a API do Imagen 3 diretamente via REST
         try {
             console.log("Chamando Imagen 3 para desenhar a imagem...");
-            const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${process.env.GEMINI_API_KEY}`;
+            const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${process.env.GEMINI_API_KEY}`;
             
             const response = await axios.post(imagenUrl, {
                 instances: [

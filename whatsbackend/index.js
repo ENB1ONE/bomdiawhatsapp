@@ -257,9 +257,11 @@ app.post('/test-now', async (req, res) => {
 
 // Settings update with reschedule
 app.post('/settings', (req, res) => {
+    console.log("Recebida solicitação para atualizar configurações:", req.body);
     const db = getDB();
     db.settings = { ...db.settings, ...req.body };
     saveDB(db);
+    console.log("Configurações salvas no banco de dados.");
     scheduleAllJobs(); // Re-agendar imediatamente
     res.json({ success: true });
 });

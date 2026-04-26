@@ -51,11 +51,16 @@ async function generateImage(prompt, type = "morning") {
             const textResponse = await axios.post(textUrl, {
                 contents: [{
                     parts: [{
-                        text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa para WhatsApp e um prompt detalhado em inglês para geração de imagem. 
+                        text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa e ÚNICA para WhatsApp. 
+                        REGRAS:
+                        1. A mensagem deve ser calorosa e variar temas (esperança, fé, gratidão, saúde) para nunca parecer repetitiva.
+                        2. Gere também um prompt detalhado em INGLÊS para geração de imagem. 
+                        3. O prompt da imagem DEVE obrigatoriamente incluir a instrução para que o texto "${type === 'morning' ? 'Bom Dia' : 'Boa Noite'}" esteja escrito de forma legível, artística e centralizada na imagem.
+                        
                         Responda APENAS com um JSON no formato:
                         {
                           "message": "texto da mensagem aqui com emojis",
-                          "image_prompt": "detailed image description in english"
+                          "image_prompt": "detailed image description in english including the text overlay instruction"
                         }`
                     }]
                 }]

@@ -245,6 +245,7 @@ function scheduleAllJobs() {
         runAutomation('night');
     });
 
+    console.log(`Hora atual do servidor: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
     console.log(`Cron Jobs atualizados: Manhã (${morningTime}), Noite (${nightTime})`);
 }
 

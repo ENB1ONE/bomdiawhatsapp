@@ -8,6 +8,7 @@ services:
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - TZ=America/Sao_Paulo
     volumes:
       - ./.wwebjs_auth:/app/.wwebjs_auth
     networks:

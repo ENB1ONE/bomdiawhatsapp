@@ -43,7 +43,7 @@ function App() {
 
   // Helper para cabeçalho de autenticação
   const getAuthHeader = () => {
-    const auth = localStorage.getItem('whatsapp_auth');
+    const auth = sessionStorage.getItem('whatsapp_auth');
     return auth ? { Authorization: `Basic ${auth}` } : {};
   };
 
@@ -53,7 +53,7 @@ function App() {
       setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
     }
 
-    const savedAuth = localStorage.getItem('whatsapp_auth');
+    const savedAuth = sessionStorage.getItem('whatsapp_auth');
     if (savedAuth) {
       setIsLoggedIn(true);
     }
@@ -74,22 +74,26 @@ function App() {
     e.preventDefault();
     try {
       setLoading(true);
+      // Primeiro salvar a URL da API caso tenha sido alterada na tela de login
+      localStorage.setItem('whatsapp_api_url', settings.apiUrl);
+      
       const authString = btoa(`${loginForm.username}:${loginForm.password}`);
-      const res = await axios.post(`${API_BASE}/login`, loginForm);
+      const res = await axios.post(`${settings.apiUrl}/login`, loginForm);
       
       if (res.data.success) {
-        localStorage.setItem('whatsapp_auth', authString);
+        sessionStorage.setItem('whatsapp_auth', authString);
         setIsLoggedIn(true);
       }
     } catch (err) {
-      alert('Usuário ou senha inválidos');
+      console.error('Login error:', err);
+      alert('Falha na conexão ou credenciais inválidas. Verifique a URL da API e os dados de acesso.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('whatsapp_auth');
+    sessionStorage.removeItem('whatsapp_auth');
     setIsLoggedIn(false);
   };
 
@@ -177,7 +181,7 @@ function App() {
   if (!isLoggedIn) {
     return (
       <div className="app-wrapper" style={{ justifyContent: 'center', alignItems: 'center', background: 'var(--bg-dark)' }}>
-        <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem' }}>
+        <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '440px', padding: '2.5rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{ 
               width: '64px', height: '64px', background: 'var(--accent-primary)', borderRadius: '16px', 
@@ -186,10 +190,20 @@ function App() {
               <Globe size={32} color="white" />
             </div>
             <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Acesso Restrito</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Faça login para gerenciar o sistema</p>
+            <p style={{ color: 'var(--text-secondary)' }}>Configure e gerencie sua automação</p>
           </div>
 
           <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>URL da API do Servidor</label>
+              <input 
+                type="url" 
+                value={settings.apiUrl}
+                onChange={(e) => setSettings({...settings, apiUrl: e.target.value})}
+                placeholder="https://sua-api.duckdns.org"
+                required
+              />
+            </div>
             <div className="form-group">
               <label>Usuário</label>
               <input 

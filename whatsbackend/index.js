@@ -145,12 +145,7 @@ app.get('/settings', (req, res) => {
     res.json(getDB().settings);
 });
 
-app.post('/settings', (req, res) => {
-    const db = getDB();
-    db.settings = { ...db.settings, ...req.body };
-    saveDB(db);
-    res.json({ success: true });
-});
+
 
 app.get('/logs', (req, res) => {
     res.json(getDB().logs);
@@ -223,25 +218,54 @@ async function runAutomation(type) {
     }
 }
 
+// Dynamic Scheduling Logic
+let morningJob = null;
+let nightJob = null;
+
+function scheduleAllJobs() {
+    const db = getDB();
+    const { morningTime, nightTime } = db.settings;
+
+    // Stop existing jobs
+    if (morningJob) morningJob.stop();
+    if (nightJob) nightJob.stop();
+
+    // Parse times (assuming HH:mm format)
+    const [mHour, mMin] = morningTime.split(':');
+    const [nHour, nMin] = nightTime.split(':');
+
+    // Schedule new jobs
+    morningJob = cron.schedule(`${mMin} ${mHour} * * *`, () => {
+        console.log(`Cron: Iniciando automação da manhã agendada para as ${morningTime}`);
+        runAutomation('morning');
+    });
+
+    nightJob = cron.schedule(`${nMin} ${nHour} * * *`, () => {
+        console.log(`Cron: Iniciando automação da noite agendada para as ${nightTime}`);
+        runAutomation('night');
+    });
+
+    console.log(`Cron Jobs atualizados: Manhã (${morningTime}), Noite (${nightTime})`);
+}
+
 // Manual Trigger
 app.post('/test-now', async (req, res) => {
-    const { type } = req.body; // 'morning' or 'night'
+    const { type } = req.body; 
     runAutomation(type || 'morning');
     res.json({ success: true, message: "Automation started manually" });
 });
 
-// Scheduling
-// Morning: 08:00
-cron.schedule('0 8 * * *', () => {
-    runAutomation('morning');
+// Settings update with reschedule
+app.post('/settings', (req, res) => {
+    const db = getDB();
+    db.settings = { ...db.settings, ...req.body };
+    saveDB(db);
+    scheduleAllJobs(); // Re-agendar imediatamente
+    res.json({ success: true });
 });
 
-// Night: 20:00
-cron.schedule('0 20 * * *', () => {
-    runAutomation('night');
-});
-
-// Initialize WhatsApp
+// Initialize
+scheduleAllJobs();
 initWhatsApp();
 
 app.listen(PORT, () => {

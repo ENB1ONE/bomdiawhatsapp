@@ -23,6 +23,8 @@ import {
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [status, setStatus] = useState({ isReady: false, qrCodeData: null });
   const [contacts, setContacts] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -39,53 +41,90 @@ function App() {
 
   const API_BASE = settings.apiUrl || 'https://api.servicesbr.duckdns.org';
 
+  // Helper para cabeçalho de autenticação
+  const getAuthHeader = () => {
+    const auth = localStorage.getItem('whatsapp_auth');
+    return auth ? { Authorization: `Basic ${auth}` } : {};
+  };
+
   useEffect(() => {
-    // Load API URL from localStorage if available
     const savedApiUrl = localStorage.getItem('whatsapp_api_url');
     if (savedApiUrl) {
       setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
     }
+
+    const savedAuth = localStorage.getItem('whatsapp_auth');
+    if (savedAuth) {
+      setIsLoggedIn(true);
+    }
   }, []);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => {
-      fetchStatus();
-      fetchLogs();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [settings.apiUrl]);
+    if (isLoggedIn) {
+      fetchData();
+      const interval = setInterval(() => {
+        fetchStatus();
+        fetchLogs();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [settings.apiUrl, isLoggedIn]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const authString = btoa(`${loginForm.username}:${loginForm.password}`);
+      const res = await axios.post(`${API_BASE}/login`, loginForm);
+      
+      if (res.data.success) {
+        localStorage.setItem('whatsapp_auth', authString);
+        setIsLoggedIn(true);
+      }
+    } catch (err) {
+      alert('Usuário ou senha inválidos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('whatsapp_auth');
+    setIsLoggedIn(false);
+  };
 
   const fetchData = async () => {
     try {
+      const config = { headers: getAuthHeader() };
       const [contactsRes, settingsRes, logsRes] = await Promise.all([
-        axios.get(`${API_BASE}/contacts`),
-        axios.get(`${API_BASE}/settings`),
-        axios.get(`${API_BASE}/logs`)
+        axios.get(`${API_BASE}/contacts`, config),
+        axios.get(`${API_BASE}/settings`, config),
+        axios.get(`${API_BASE}/logs`, config)
       ]);
       setContacts(contactsRes.data);
       setSettings(prev => ({ ...prev, ...settingsRes.data }));
       setLogs(logsRes.data);
     } catch (err) {
+      if (err.response?.status === 401) handleLogout();
       console.error('Error fetching data:', err);
     }
   };
 
   const fetchStatus = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/status`);
+      const res = await axios.get(`${API_BASE}/status`, { headers: getAuthHeader() });
       setStatus(res.data);
     } catch (err) {
-      console.error('Error fetching status:', err);
+      if (err.response?.status === 401) handleLogout();
     }
   };
 
   const fetchLogs = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/logs`);
+      const res = await axios.get(`${API_BASE}/logs`, { headers: getAuthHeader() });
       setLogs(res.data);
     } catch (err) {
-      console.error('Error fetching logs:', err);
+      if (err.response?.status === 401) handleLogout();
     }
   };
 
@@ -97,7 +136,7 @@ function App() {
   const addContact = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/contacts`, newContact);
+      await axios.post(`${API_BASE}/contacts`, newContact, { headers: getAuthHeader() });
       setNewContact({ name: '', phone: '' });
       fetchData();
     } catch (err) {
@@ -107,7 +146,7 @@ function App() {
 
   const removeContact = async (phone) => {
     try {
-      await axios.delete(`${API_BASE}/contacts/${phone}`);
+      await axios.delete(`${API_BASE}/contacts/${phone}`, { headers: getAuthHeader() });
       fetchData();
     } catch (err) {
       alert('Erro ao remover contato');
@@ -117,7 +156,7 @@ function App() {
   const saveSettings = async () => {
     try {
       setLoading(true);
-      await axios.post(`${API_BASE}/settings`, settings);
+      await axios.post(`${API_BASE}/settings`, settings, { headers: getAuthHeader() });
       alert('Configurações salvas!');
     } catch (err) {
       alert('Erro ao salvar configurações');
@@ -128,12 +167,55 @@ function App() {
 
   const triggerTest = async (type) => {
     try {
-      await axios.post(`${API_BASE}/test-now`, { type });
+      await axios.post(`${API_BASE}/test-now`, { type }, { headers: getAuthHeader() });
       alert(`Automação de ${type === 'morning' ? 'Bom dia' : 'Boa noite'} iniciada!`);
     } catch (err) {
       alert('Erro ao iniciar teste');
     }
   };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="app-wrapper" style={{ justifyContent: 'center', alignItems: 'center', background: 'var(--bg-dark)' }}>
+        <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div style={{ 
+              width: '64px', height: '64px', background: 'var(--accent-primary)', borderRadius: '16px', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' 
+            }}>
+              <Globe size={32} color="white" />
+            </div>
+            <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Acesso Restrito</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>Faça login para gerenciar o sistema</p>
+          </div>
+
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>Usuário</label>
+              <input 
+                type="text" 
+                value={loginForm.username}
+                onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Senha</label>
+              <input 
+                type="password" 
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '48px', marginTop: '1rem' }} disabled={loading}>
+              {loading ? 'Verificando...' : 'Entrar'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-wrapper">

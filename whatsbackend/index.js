@@ -14,6 +14,40 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(bodyParser.json());
 
+const AUTH_USER = "enb1one";
+const AUTH_PASS = "enb1palms@28";
+
+// Middleware de Autenticação
+const authMiddleware = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).json({ error: "Acesso negado. Autenticação necessária." });
+    }
+
+    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+    const user = auth[0];
+    const pass = auth[1];
+
+    if (user === AUTH_USER && pass === AUTH_PASS) {
+        next();
+    } else {
+        res.status(401).json({ error: "Credenciais inválidas." });
+    }
+};
+
+// Rota de Login (pública para o front validar)
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === AUTH_USER && password === AUTH_PASS) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false, error: "Usuário ou senha incorretos" });
+    }
+});
+
+// Proteger todas as rotas abaixo com o middleware
+app.use(authMiddleware);
+
 const DB_PATH = path.join(__dirname, 'database.json');
 
 if (!fs.existsSync(DB_PATH)) {

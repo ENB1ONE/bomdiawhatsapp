@@ -111,24 +111,33 @@ async function runAutomation(type) {
             console.error("Gemini failed, proceeding with text-only:", iaError.message);
         }
         
-        let successCount = 0;
-        let failCount = 0;
+        let successes = [];
+        let failures = [];
 
         for (const contact of db.contacts) {
             try {
                 console.log(`Sending to ${contact.name} (${contact.phone})`);
                 await sendMessage(contact.phone, greeting, imageBuffer);
-                successCount++;
+                successes.push({ name: contact.name, phone: contact.phone });
             } catch (err) {
                 console.error(`Failed to send to ${contact.phone}:`, err);
-                failCount++;
+                failures.push({ name: contact.name, phone: contact.phone, error: err.message || err.toString() });
             }
         }
 
-        addLog(type, 'success', `Enviado para ${successCount} contatos. Falhas: ${failCount}`);
+        const finalStatus = failures.length === 0 ? 'success' : (successes.length === 0 ? 'error' : 'warning');
+        
+        addLog(type, finalStatus, {
+            summary: `Enviado para ${successes.length} contatos. Falhas: ${failures.length}`,
+            successes,
+            failures
+        });
     } catch (err) {
         console.error("Critical automation error:", err);
-        addLog(type, 'error', err.message);
+        addLog(type, 'error', {
+            summary: "Erro crítico na automação",
+            error: err.message || err.toString()
+        });
     }
 }
 

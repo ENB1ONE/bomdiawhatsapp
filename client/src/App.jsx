@@ -35,6 +35,7 @@ function App() {
   });
   const [newContact, setNewContact] = useState({ name: '', phone: '' });
   const [loading, setLoading] = useState(false);
+  const [expandedLogId, setExpandedLogId] = useState(null);
 
   const API_BASE = settings.apiUrl || 'https://api.servicesbr.duckdns.org';
 
@@ -293,32 +294,72 @@ function App() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {logs.length > 0 ? logs.map(log => (
-                    <div key={log.id} className="contact-row" style={{ padding: '0.75rem 1.25rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        {log.status === 'success' ? (
-                          <CheckCircle2 size={18} color="var(--success)" />
-                        ) : (
-                          <XCircle size={18} color="var(--danger)" />
-                        )}
-                        <div>
-                          <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>
-                            Automação de {log.type === 'morning' ? 'Bom Dia' : 'Boa Noite'}
-                          </p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                            {new Date(log.timestamp).toLocaleString('pt-BR')} • {log.details}
-                          </p>
+                    <div key={log.id} className="contact-row" style={{ padding: '0.75rem 1.25rem', flexDirection: 'column', alignItems: 'stretch' }}>
+                      <div 
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', width: '100%' }}
+                        onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          {log.status === 'success' ? (
+                            <CheckCircle2 size={18} color="var(--success)" />
+                          ) : (
+                            <XCircle size={18} color="var(--danger)" />
+                          )}
+                          <div>
+                            <p style={{ fontSize: '0.9375rem', fontWeight: 500 }}>
+                              Automação de {log.type === 'morning' ? 'Bom Dia' : 'Boa Noite'}
+                            </p>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {new Date(log.timestamp).toLocaleString('pt-BR')} • {typeof log.details === 'string' ? log.details : log.details?.summary}
+                            </p>
+                          </div>
                         </div>
+                        <span style={{ 
+                          fontSize: '0.6875rem', 
+                          fontWeight: 700, 
+                          padding: '0.25rem 0.5rem', 
+                          borderRadius: '4px',
+                          background: log.status === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                          color: log.status === 'success' ? 'var(--success)' : 'var(--danger)'
+                        }}>
+                          {log.status.toUpperCase()}
+                        </span>
                       </div>
-                      <span style={{ 
-                        fontSize: '0.6875rem', 
-                        fontWeight: 700, 
-                        padding: '0.25rem 0.5rem', 
-                        borderRadius: '4px',
-                        background: log.status === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                        color: log.status === 'success' ? 'var(--success)' : 'var(--danger)'
-                      }}>
-                        {log.status.toUpperCase()}
-                      </span>
+
+                      {expandedLogId === log.id && (
+                        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '0.85rem' }}>
+                          {log.details?.successes && log.details.successes.length > 0 && (
+                            <div style={{ marginBottom: '1rem' }}>
+                              <p style={{ color: 'var(--success)', fontWeight: 600, marginBottom: '0.5rem' }}>✅ Entregues ({log.details.successes.length}):</p>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
+                                {log.details.successes.map((c, i) => (
+                                  <div key={i} style={{ opacity: 0.8 }}>• {c.name} ({c.phone})</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {log.details?.failures && log.details.failures.length > 0 && (
+                            <div style={{ marginBottom: '0.5rem' }}>
+                              <p style={{ color: 'var(--danger)', fontWeight: 600, marginBottom: '0.5rem' }}>❌ Falhas ({log.details.failures.length}):</p>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {log.details.failures.map((f, i) => (
+                                  <div key={i} style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '0.5rem', borderRadius: '4px' }}>
+                                    <strong>{f.name} ({f.phone})</strong>: <span style={{ opacity: 0.8 }}>{f.error}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {log.details?.error && (
+                            <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '0.5rem', borderRadius: '4px', color: 'var(--danger)' }}>
+                              <p style={{ fontWeight: 600 }}>Erro Crítico:</p>
+                              <p style={{ opacity: 0.8 }}>{log.details.error}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )) : (
                     <div style={{ textAlign: 'center', padding: '2rem', opacity: 0.5 }}>

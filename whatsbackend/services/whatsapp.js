@@ -29,8 +29,12 @@ function initWhatsApp(onQR) {
             dataPath: './.wwebjs_auth'
         }),
         authTimeoutMs: 60000, 
+        webVersionCache: {
+            type: 'remote',
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        },
         puppeteer: {
-            headless: true,
+            headless: 'new', // Modo moderno pode ser mais estável em versões recentes do Chromium
             executablePath: '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
@@ -40,6 +44,7 @@ function initWhatsApp(onQR) {
                 '--no-first-run',
                 '--no-zygote',
                 '--disable-gpu',
+                '--disable-extensions',
                 '--disable-features=IsolateOrigins,site-per-process',
                 '--disable-site-isolation-trials'
             ]
@@ -75,13 +80,27 @@ function initWhatsApp(onQR) {
         setTimeout(() => {
             console.log('Tentando reconectar...');
             client.initialize().catch(err => console.error('Erro na reinicialização:', err));
-        }, 5000);
+        }, 10000);
     });
 
     console.log("Iniciando WhatsApp Client...");
-    client.initialize().catch(err => {
-        console.error("Falha fatal ao inicializar o WhatsApp Client:", err);
-    });
+    
+    // Função de inicialização com tentativa de retry
+    const startClient = async (retries = 3) => {
+        try {
+            await client.initialize();
+        } catch (err) {
+            console.error(`Erro ao inicializar WhatsApp (Tentativas restantes: ${retries}):`, err.message);
+            if (retries > 0) {
+                console.log("Aguardando 10 segundos antes de tentar novamente...");
+                setTimeout(() => startClient(retries - 1), 10000);
+            } else {
+                console.error("Falha fatal após múltiplas tentativas.");
+            }
+        }
+    };
+
+    startClient();
 }
 
 async function sendMessage(to, text, mediaBuffer = null, filename = 'image.png') {

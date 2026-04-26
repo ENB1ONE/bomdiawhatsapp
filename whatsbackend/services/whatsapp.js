@@ -40,7 +40,9 @@ function initWhatsApp(onQR) {
                 '--no-first-run',
                 '--no-zygote',
                 '--disable-gpu',
-                '--single-process'
+                '--single-process',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-site-isolation-trials'
             ]
         }
     });

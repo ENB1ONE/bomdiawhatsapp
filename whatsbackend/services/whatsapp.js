@@ -28,9 +28,9 @@ function initWhatsApp(onQR) {
         authStrategy: new LocalAuth({
             dataPath: './.wwebjs_auth'
         }),
-        authTimeoutMs: 60000, // Aumenta tempo de espera para autenticação
+        authTimeoutMs: 60000, 
         puppeteer: {
-            headless: true, // Modo clássico mais estável para evitar "Execution context was destroyed"
+            headless: true,
             executablePath: '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
@@ -40,7 +40,6 @@ function initWhatsApp(onQR) {
                 '--no-first-run',
                 '--no-zygote',
                 '--disable-gpu',
-                '--single-process',
                 '--disable-features=IsolateOrigins,site-per-process',
                 '--disable-site-isolation-trials'
             ]
@@ -50,7 +49,7 @@ function initWhatsApp(onQR) {
     client.on('qr', (qr) => {
         console.log('QR RECEIVED', qr);
         qrCodeData = qr;
-        isReady = false; // Garante que o status mude para não pronto
+        isReady = false;
         if (onQR) onQR(qr);
         qrcode.generate(qr, { small: true });
     });
@@ -73,11 +72,16 @@ function initWhatsApp(onQR) {
     client.on('disconnected', (reason) => {
         console.log('WhatsApp Disconnected', reason);
         isReady = false;
-        // Re-initialize after a delay
-        setTimeout(() => client.initialize(), 5000);
+        setTimeout(() => {
+            console.log('Tentando reconectar...');
+            client.initialize().catch(err => console.error('Erro na reinicialização:', err));
+        }, 5000);
     });
 
-    client.initialize();
+    console.log("Iniciando WhatsApp Client...");
+    client.initialize().catch(err => {
+        console.error("Falha fatal ao inicializar o WhatsApp Client:", err);
+    });
 }
 
 async function sendMessage(to, text, mediaBuffer = null, filename = 'image.png') {

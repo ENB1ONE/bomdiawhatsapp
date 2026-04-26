@@ -95,8 +95,17 @@ function initWhatsApp(onQR) {
 async function sendMessage(to, text, mediaBuffer = null, filename = 'image.png') {
     if (!isReady) throw new Error("WhatsApp client not ready");
 
-    // Format number: should be 5511999999999@c.us
-    const chatId = to.includes('@c.us') ? to : `${to}@c.us`;
+    // Resolve o ID correto do WhatsApp (trata números com ou sem o 9 extra, e resolve o erro de LID)
+    let chatId = to.includes('@c.us') ? to : `${to}@c.us`;
+    
+    try {
+        const numberDetails = await client.getNumberId(to);
+        if (numberDetails) {
+            chatId = numberDetails._serialized;
+        }
+    } catch (e) {
+        console.warn(`Aviso: Não foi possível validar o número ${to}, tentando envio direto.`);
+    }
 
     if (mediaBuffer) {
         const media = new MessageMedia('image/png', mediaBuffer.toString('base64'), filename);

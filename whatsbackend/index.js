@@ -104,12 +104,15 @@ async function runAutomation(type) {
     const greeting = type === 'morning' ? "Bom dia! ☀️" : "Boa noite! 🌙";
 
     try {
-        let imageBuffer = null;
+        let aiContent = { image: null, caption: greeting };
         try {
-            imageBuffer = await generateImage(prompt, type);
+            aiContent = await generateImage(prompt, type);
         } catch (iaError) {
-            console.error("Gemini failed, proceeding with text-only:", iaError.message);
+            console.error("IA falhou, seguindo com texto padrão:", iaError.message);
         }
+        
+        const finalImage = aiContent.image;
+        const finalGreeting = aiContent.caption || greeting;
         
         let successes = [];
         let failures = [];
@@ -117,7 +120,7 @@ async function runAutomation(type) {
         for (const contact of db.contacts) {
             try {
                 console.log(`Sending to ${contact.name} (${contact.phone})`);
-                await sendMessage(contact.phone, greeting, imageBuffer);
+                await sendMessage(contact.phone, finalGreeting, finalImage);
                 successes.push({ name: contact.name, phone: contact.phone });
             } catch (err) {
                 console.error(`Failed to send to ${contact.phone}:`, err);

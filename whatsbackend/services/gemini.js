@@ -17,12 +17,17 @@ async function generateImage(prompt, type = "morning") {
         if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
         
         const cacheFile = path.join(cacheDir, `${type}-${today}.png`);
-        if (fs.existsSync(cacheFile)) {
-            console.log(`Usando imagem do cache diário para ${type} de hoje (${today}).`);
-            return fs.readFileSync(cacheFile);
+        const cacheTextFile = path.join(cacheDir, `${type}-${today}.txt`);
+        
+        if (fs.existsSync(cacheFile) && fs.existsSync(cacheTextFile)) {
+            console.log(`Usando imagem e texto do cache diário para ${type} de hoje (${today}).`);
+            return {
+                image: fs.readFileSync(cacheFile),
+                caption: fs.readFileSync(cacheTextFile, 'utf8')
+            };
         }
 
-        console.log(`Gerando nova imagem para ${type} com prompt: ${prompt}`);
+        console.log(`Gerando novo conteúdo para ${type} com prompt: ${prompt}`);
         
         // This is a generic implementation. 
         // As of now, Gemini Pro/Flash (Google AI Studio) handles text-to-image 
@@ -40,14 +45,36 @@ async function generateImage(prompt, type = "morning") {
         // em todas as chaves e regiões.
         const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         
-        // Timeout de 10 segundos para a IA não travar o robô
+        // Pedimos para a IA gerar o texto da mensagem E o prompt da imagem em formato JSON
         const smartPromptResult = await Promise.race([
-            model.generateContent(`Crie um prompt detalhado em inglês para geração de imagem baseado em: ${prompt}`),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Gemini')), 10000))
+            model.generateContent([
+                { text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa para WhatsApp e um prompt detalhado em inglês para geração de imagem. 
+                Responda APENAS com um JSON no formato:
+                {
+                  "message": "texto da mensagem aqui com emojis",
+                  "image_prompt": "detailed image description in english"
+                }` }
+            ]),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Gemini')), 15000))
         ]);
 
-        const enhancedPrompt = smartPromptResult.response.text();
-        console.log("Enhanced Prompt:", enhancedPrompt);
+        let aiResponse = { message: type === 'morning' ? "Bom dia! ☀️" : "Boa noite! 🌙", image_prompt: prompt };
+        try {
+            const rawText = smartPromptResult.response.text();
+            // Limpa possíveis marcações de markdown do JSON
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                aiResponse = JSON.parse(jsonMatch[0]);
+            }
+        } catch (e) {
+            console.error("Erro ao processar JSON da IA:", e);
+        }
+
+        console.log("AI Message:", aiResponse.message);
+        console.log("AI Image Prompt:", aiResponse.image_prompt);
+
+        const enhancedPrompt = aiResponse.image_prompt;
+        const finalCaption = aiResponse.message;
 
         // Agora vamos chamar a API do Imagen 3 diretamente via REST
         try {
@@ -76,14 +103,15 @@ async function generateImage(prompt, type = "morning") {
                     const buffer = Buffer.from(base64Image, 'base64');
                     // Salva no cache diário
                     fs.writeFileSync(cacheFile, buffer);
-                    return buffer;
+                    fs.writeFileSync(cacheTextFile, finalCaption);
+                    return { image: buffer, caption: finalCaption };
                 }
             }
             console.log("Resposta do Imagen 3 não continha a imagem esperada.");
-            return null;
+            return { image: null, caption: finalCaption };
         } catch (imgError) {
             console.error("Erro ao gerar imagem com Imagen 3:", imgError.response?.data || imgError.message);
-            return null; // Retorna nulo para o sistema usar o fallback de texto
+            return { image: null, caption: finalCaption };
         }
     } catch (error) {
         console.error("Erro geral na geração:", error);

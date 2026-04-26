@@ -11,7 +11,18 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateImage(prompt, type = "morning") {
     try {
-        console.log(`Generating image for ${type} with prompt: ${prompt}`);
+        // Verificar cache diário para não gerar a mesma imagem 2x no dia
+        const today = new Date().toISOString().split('T')[0]; // Ex: 2023-10-25
+        const cacheDir = path.join(process.cwd(), 'cache');
+        if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
+        
+        const cacheFile = path.join(cacheDir, `${type}-${today}.png`);
+        if (fs.existsSync(cacheFile)) {
+            console.log(`Usando imagem do cache diário para ${type} de hoje (${today}).`);
+            return fs.readFileSync(cacheFile);
+        }
+
+        console.log(`Gerando nova imagem para ${type} com prompt: ${prompt}`);
         
         // This is a generic implementation. 
         // As of now, Gemini Pro/Flash (Google AI Studio) handles text-to-image 
@@ -62,7 +73,10 @@ async function generateImage(prompt, type = "morning") {
                 const base64Image = response.data.predictions[0].bytesBase64Encoded;
                 if (base64Image) {
                     console.log("Imagem gerada com sucesso pelo Imagen 3!");
-                    return Buffer.from(base64Image, 'base64');
+                    const buffer = Buffer.from(base64Image, 'base64');
+                    // Salva no cache diário
+                    fs.writeFileSync(cacheFile, buffer);
+                    return buffer;
                 }
             }
             console.log("Resposta do Imagen 3 não continha a imagem esperada.");

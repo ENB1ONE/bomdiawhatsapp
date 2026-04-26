@@ -28,12 +28,9 @@ function initWhatsApp(onQR) {
         authStrategy: new LocalAuth({
             dataPath: './.wwebjs_auth'
         }),
-        webVersionCache: {
-            type: 'remote',
-            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-        },
+        authTimeoutMs: 60000, // Aumenta tempo de espera para autenticação
         puppeteer: {
-            headless: 'new', // Motor mais moderno e rápido
+            headless: true, // Modo clássico mais estável para evitar "Execution context was destroyed"
             executablePath: '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
@@ -43,20 +40,7 @@ function initWhatsApp(onQR) {
                 '--no-first-run',
                 '--no-zygote',
                 '--disable-gpu',
-                '--single-process',
-                '--disable-extensions',
-                '--disable-background-networking',
-                '--disable-default-apps',
-                '--disable-sync',
-                '--disable-translate',
-                '--metrics-recording-only',
-                '--no-default-browser-check',
-                '--no-experiments',
-                '--password-store=basic',
-                '--use-mock-keychain',
-                '--disable-client-side-phishing-detection',
-                '--disable-component-update',
-                '--mute-audio'
+                '--single-process'
             ]
         }
     });

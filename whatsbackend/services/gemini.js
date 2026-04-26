@@ -78,44 +78,23 @@ async function generateImage(prompt, type = "morning") {
         const enhancedPrompt = aiResponse.image_prompt;
         const finalCaption = aiResponse.message;
 
-        // Agora vamos chamar a API do Imagen 3 diretamente via REST
+        // Usamos Pollinations.ai como motor principal de imagem (mais rápido e sem restrições de chave)
         try {
-            console.log("Chamando Imagen 3 para desenhar a imagem...");
-            const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${process.env.GEMINI_API_KEY}`;
+            console.log("Gerando imagem via Pollinations.ai...");
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
             
-            const response = await axios.post(imagenUrl, {
-                instances: [{ prompt: enhancedPrompt }],
-                parameters: { sampleCount: 1, aspectRatio: "1:1" }
-            }, {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 30000 
-            });
-
-            if (response.data?.predictions?.[0]?.bytesBase64Encoded) {
-                console.log("Imagem gerada com sucesso pelo Imagen 3!");
-                const buffer = Buffer.from(response.data.predictions[0].bytesBase64Encoded, 'base64');
+            const imageRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 45000 });
+            
+            if (imageRes.data) {
+                console.log("Imagem gerada com sucesso!");
+                const buffer = Buffer.from(imageRes.data);
                 fs.writeFileSync(cacheFile, buffer);
                 fs.writeFileSync(cacheTextFile, finalCaption);
                 return { image: buffer, caption: finalCaption };
             }
-            throw new Error("Imagen 3 não disponível ou sem retorno.");
+            throw new Error("Pollinations não retornou dados.");
         } catch (imgError) {
-            console.warn("Imagen 3 indisponível, usando motor alternativo (Pollinations.ai)...");
-            try {
-                // Pollinations.ai é gratuito, rápido e não requer chave, ideal para fallback
-                const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
-                const fallbackRes = await axios.get(fallbackUrl, { responseType: 'arraybuffer', timeout: 30000 });
-                
-                if (fallbackRes.data) {
-                    console.log("Imagem gerada com sucesso pelo Pollinations!");
-                    const buffer = Buffer.from(fallbackRes.data);
-                    fs.writeFileSync(cacheFile, buffer);
-                    fs.writeFileSync(cacheTextFile, finalCaption);
-                    return { image: buffer, caption: finalCaption };
-                }
-            } catch (pError) {
-                console.error("Falha total na geração de imagem:", pError.message);
-            }
+            console.error("Falha ao gerar imagem:", imgError.message);
             return { image: null, caption: finalCaption };
         }
     } catch (error) {

@@ -41,33 +41,36 @@ async function generateImage(prompt, type = "morning") {
         // Since the user asked for "Gemini 3 Flash Image", I will assume they want 
         // the latest multimodal capability.
         
-        // Usando o gemini-pro pois ele tem disponibilidade global garantida
-        // em todas as chaves e regiões.
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-        
         // Pedimos para a IA gerar o texto da mensagem E o prompt da imagem em formato JSON
-        const smartPromptResult = await Promise.race([
-            model.generateContent([
-                { text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa para WhatsApp e um prompt detalhado em inglês para geração de imagem. 
-                Responda APENAS com um JSON no formato:
-                {
-                  "message": "texto da mensagem aqui com emojis",
-                  "image_prompt": "detailed image description in english"
-                }` }
-            ]),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Gemini')), 15000))
-        ]);
-
+        // Agora usamos REST para texto também, para garantir o uso da versão v1 (estável)
         let aiResponse = { message: type === 'morning' ? "Bom dia! ☀️" : "Boa noite! 🌙", image_prompt: prompt };
+        
         try {
-            const rawText = smartPromptResult.response.text();
-            // Limpa possíveis marcações de markdown do JSON
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                aiResponse = JSON.parse(jsonMatch[0]);
+            console.log("Solicitando texto para a IA (v1)...");
+            const textUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+            
+            const textResponse = await axios.post(textUrl, {
+                contents: [{
+                    parts: [{
+                        text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa para WhatsApp e um prompt detalhado em inglês para geração de imagem. 
+                        Responda APENAS com um JSON no formato:
+                        {
+                          "message": "texto da mensagem aqui com emojis",
+                          "image_prompt": "detailed image description in english"
+                        }`
+                    }]
+                }]
+            }, { timeout: 15000 });
+
+            if (textResponse.data && textResponse.data.candidates && textResponse.data.candidates[0].content) {
+                const rawText = textResponse.data.candidates[0].content.parts[0].text;
+                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    aiResponse = JSON.parse(jsonMatch[0]);
+                }
             }
         } catch (e) {
-            console.error("Erro ao processar JSON da IA:", e);
+            console.error("Erro ao processar texto da IA (REST):", e.response?.data || e.message);
         }
 
         console.log("AI Message:", aiResponse.message);

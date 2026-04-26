@@ -141,9 +141,20 @@ app.get('/logs', (req, res) => {
     res.json(getDB().logs);
 });
 
+// Helper to sanitize phone numbers
+function sanitizePhone(phone) {
+    let cleaned = phone.replace(/\D/g, ''); // Remove tudo que não é número
+    if (cleaned.length === 11 && !cleaned.startsWith('55')) {
+        cleaned = '55' + cleaned; // Adiciona 55 se for número brasileiro de 11 dígitos
+    } else if (cleaned.length === 10 && !cleaned.startsWith('55')) {
+        cleaned = '55' + cleaned; // Adiciona 55 se for número brasileiro de 10 dígitos
+    }
+    return cleaned;
+}
+
 // Logic to run automation
 async function runAutomation(type) {
-    console.log(`Running ${type} automation...`);
+    console.log(`\n--- STARTING ${type.toUpperCase()} AUTOMATION ---`);
     const db = getDB();
     const { morningPrompt, nightPrompt } = db.settings;
     const prompt = type === 'morning' ? morningPrompt : nightPrompt;
@@ -165,11 +176,14 @@ async function runAutomation(type) {
 
         for (const contact of db.contacts) {
             try {
-                console.log(`Sending to ${contact.name} (${contact.phone})`);
-                await sendMessage(contact.phone, finalGreeting, finalImage);
-                successes.push({ name: contact.name, phone: contact.phone });
+                const cleanPhone = sanitizePhone(contact.phone);
+                console.log(`Sending to ${contact.name} (${cleanPhone})...`);
+                await sendMessage(cleanPhone, finalGreeting, finalImage);
+                successes.push({ name: contact.name, phone: cleanPhone });
+                // Pequeno delay entre mensagens para evitar spam/bloqueio
+                await new Promise(r => setTimeout(r, 2000));
             } catch (err) {
-                console.error(`Failed to send to ${contact.phone}:`, err);
+                console.error(`Failed to send to ${contact.phone}:`, err.message || err.toString());
                 failures.push({ name: contact.name, phone: contact.phone, error: err.message || err.toString() });
             }
         }
@@ -181,6 +195,8 @@ async function runAutomation(type) {
             successes,
             failures
         });
+        console.log(`--- ${type.toUpperCase()} AUTOMATION COMPLETED ---`);
+        console.log(`Success: ${successes.length}, Failures: ${failures.length}\n`);
     } catch (err) {
         console.error("Critical automation error:", err);
         addLog(type, 'error', {

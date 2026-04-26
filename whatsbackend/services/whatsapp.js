@@ -64,6 +64,7 @@ function initWhatsApp(onQR) {
     client.on('qr', (qr) => {
         console.log('QR RECEIVED', qr);
         qrCodeData = qr;
+        isReady = false; // Garante que o status mude para não pronto
         if (onQR) onQR(qr);
         qrcode.generate(qr, { small: true });
     });
@@ -80,6 +81,7 @@ function initWhatsApp(onQR) {
 
     client.on('auth_failure', (msg) => {
         console.error('WhatsApp Auth failure', msg);
+        isReady = false;
     });
 
     client.on('disconnected', (reason) => {

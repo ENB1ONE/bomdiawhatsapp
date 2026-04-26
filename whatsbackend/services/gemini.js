@@ -38,27 +38,41 @@ async function generateImage(prompt, type = "morning") {
         const enhancedPrompt = smartPromptResult.response.text();
         console.log("Enhanced Prompt:", enhancedPrompt);
 
-        // Since I cannot guarantee the specific "Gemini 3 Flash Image" model availability 
-        // in all environments without a specific Vertex AI setup, 
-        // I will provide a function that would normally call the Image generation API.
-        
-        // For this demo/setup, I'll simulate the image generation by returning 
-        // a high-quality placeholder if the API doesn't support the specific image model yet.
-        
-        // However, if the user has a specific URL or API for Imagen, they can put it here.
-        
-        // Let's assume we use a service that returns the image.
-        // I'll return a Base64 string of a generated image.
-        
-        // If you have a real Imagen 3 API endpoint:
-        /*
-        const response = await axios.post('https://...', { prompt: enhancedPrompt }, { headers: { Authorization: `Bearer ${process.env.GEMINI_API_KEY}` }});
-        return response.data.image_base64;
-        */
+        // Agora vamos chamar a API do Imagen 3 diretamente via REST
+        try {
+            console.log("Chamando Imagen 3 para desenhar a imagem...");
+            const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${process.env.GEMINI_API_KEY}`;
+            
+            const response = await axios.post(imagenUrl, {
+                instances: [
+                    { prompt: enhancedPrompt }
+                ],
+                parameters: {
+                    sampleCount: 1,
+                    aspectRatio: "1:1"
+                }
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000 // 30 segundos de limite para a imagem
+            });
 
-        return null; // For now, we will use this to signal we need to implement the specific provider
+            if (response.data && response.data.predictions && response.data.predictions.length > 0) {
+                const base64Image = response.data.predictions[0].bytesBase64Encoded;
+                if (base64Image) {
+                    console.log("Imagem gerada com sucesso pelo Imagen 3!");
+                    return Buffer.from(base64Image, 'base64');
+                }
+            }
+            console.log("Resposta do Imagen 3 não continha a imagem esperada.");
+            return null;
+        } catch (imgError) {
+            console.error("Erro ao gerar imagem com Imagen 3:", imgError.response?.data || imgError.message);
+            return null; // Retorna nulo para o sistema usar o fallback de texto
+        }
     } catch (error) {
-        console.error("Error generating image:", error);
+        console.error("Erro geral na geração:", error);
         throw error;
     }
 }

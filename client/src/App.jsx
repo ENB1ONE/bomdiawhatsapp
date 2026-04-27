@@ -232,6 +232,17 @@ function App() {
 
   return (
     <div className="app-wrapper">
+      {/* Mobile Backdrop Blur */}
+      {isSidebarOpen && (
+        <div 
+          style={{ 
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', 
+            backdropFilter: 'blur(8px)', zIndex: 90 
+          }} 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Mobile Header Toggle */}
       <div style={{ 
         position: 'fixed', top: '1.5rem', left: '1.5rem', zIndex: 200, display: 'none'

@@ -1,4 +1,4 @@
-// WPP Auto Sender - Interface Liquid Glass v4 (Anti-Crash)
+// WPP Auto Sender - Interface Liquid Glass v5 (Final Hardening)
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -23,7 +23,8 @@ import {
   X,
   LogOut,
   Info,
-  Calendar
+  Calendar,
+  ChevronRight
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 
@@ -38,8 +39,8 @@ function App() {
   const [selectedLog, setSelectedLog] = useState(null);
   const [selectedTestContact, setSelectedTestContact] = useState('');
   const [settings, setSettings] = useState({
-    morningPrompt: "Com fé e otimismo, gere uma mensagem calorosa de 'Bom Dia' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem matinal realista, vibrante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.",
-    nightPrompt: "Com fé e otimismo, gere uma mensagem calorosa de 'Boa Noite' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem noturna realista, aconchegante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.",
+    morningPrompt: "",
+    nightPrompt: "",
     morningTime: '08:00',
     nightTime: '20:00',
     apiUrl: 'https://api.servicesbr.duckdns.org'
@@ -50,15 +51,19 @@ function App() {
   const API_BASE = settings?.apiUrl || 'https://api.servicesbr.duckdns.org';
 
   const getAuthHeader = () => {
-    const auth = sessionStorage.getItem('whatsapp_auth');
-    return auth ? { Authorization: `Basic ${auth}` } : {};
+    try {
+      const auth = sessionStorage.getItem('whatsapp_auth');
+      return auth ? { Authorization: `Basic ${auth}` } : {};
+    } catch (e) { return {}; }
   };
 
   useEffect(() => {
-    const savedApiUrl = localStorage.getItem('whatsapp_api_url');
-    if (savedApiUrl) setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
-    const savedAuth = sessionStorage.getItem('whatsapp_auth');
-    if (savedAuth) setIsLoggedIn(true);
+    try {
+      const savedApiUrl = localStorage.getItem('whatsapp_api_url');
+      if (savedApiUrl) setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
+      const savedAuth = sessionStorage.getItem('whatsapp_auth');
+      if (savedAuth) setIsLoggedIn(true);
+    } catch (e) { console.error("Load state error", e); }
   }, []);
 
   useEffect(() => {
@@ -70,20 +75,22 @@ function App() {
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, settings.apiUrl]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const authString = btoa(`${loginForm.username}:${loginForm.password}`);
       const res = await axios.post(`${settings.apiUrl}/login`, loginForm);
       if (res.data?.success) {
+        const authString = btoa(`${loginForm.username}:${loginForm.password}`);
         sessionStorage.setItem('whatsapp_auth', authString);
         setIsLoggedIn(true);
+      } else {
+        alert(res.data?.error || 'Usuário ou senha incorretos.');
       }
     } catch (err) {
-      alert('Falha na conexão ou credenciais inválidas.');
+      alert('Falha na conexão com o servidor. Verifique a URL da API.');
     } finally {
       setLoading(false);
     }
@@ -92,21 +99,28 @@ function App() {
   const handleLogout = () => {
     sessionStorage.removeItem('whatsapp_auth');
     setIsLoggedIn(false);
+    setSelectedLog(null);
   };
 
   const fetchData = async () => {
     try {
       const config = { headers: getAuthHeader() };
       const [contactsRes, settingsRes, logsRes] = await Promise.all([
-        axios.get(`${API_BASE}/contacts`, config).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE}/settings`, config).catch(() => ({ data: null })),
-        axios.get(`${API_BASE}/logs`, config).catch(() => ({ data: [] }))
+        axios.get(`${API_BASE}/contacts`, config).catch(e => ({ data: [], status: e.response?.status })),
+        axios.get(`${API_BASE}/settings`, config).catch(e => ({ data: null, status: e.response?.status })),
+        axios.get(`${API_BASE}/logs`, config).catch(e => ({ data: [], status: e.response?.status }))
       ]);
+
+      if (contactsRes.status === 401 || settingsRes.status === 401 || logsRes.status === 401) {
+         handleLogout();
+         return;
+      }
+
       setContacts(Array.isArray(contactsRes.data) ? contactsRes.data : []);
       if (settingsRes.data) setSettings(prev => ({ ...prev, ...settingsRes.data }));
       setLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
     } catch (err) {
-      if (err.response?.status === 401) handleLogout();
+      console.error("Fetch error", err);
     }
   };
 
@@ -134,40 +148,31 @@ function App() {
       await axios.post(`${API_BASE}/contacts`, newContact, { headers: getAuthHeader() });
       setNewContact({ name: '', phone: '' });
       fetchData();
-    } catch (err) {
-      alert('Erro ao adicionar contato');
-    }
+    } catch (err) { alert('Erro ao adicionar'); }
   };
 
   const removeContact = async (phone) => {
-    if (!confirm('Excluir este contato?')) return;
+    if (!confirm('Excluir?')) return;
     try {
       await axios.delete(`${API_BASE}/contacts/${phone}`, { headers: getAuthHeader() });
       fetchData();
-    } catch (err) {
-      alert('Erro ao remover contato');
-    }
+    } catch (err) { alert('Erro ao remover'); }
   };
 
   const saveSettings = async () => {
     try {
       setLoading(true);
       await axios.post(`${API_BASE}/settings`, settings, { headers: getAuthHeader() });
-      alert('Configurações salvas!');
-    } catch (err) {
-      alert('Erro ao salvar configurações');
-    } finally {
-      setLoading(false);
-    }
+      alert('Salvo!');
+    } catch (err) { alert('Erro ao salvar'); }
+    finally { setLoading(false); }
   };
 
   const triggerTest = async (type, contactPhone = null) => {
     try {
       await axios.post(`${API_BASE}/test-now`, { type, contactPhone }, { headers: getAuthHeader() });
       alert(`Envio solicitado!`);
-    } catch (err) {
-      alert('Erro ao iniciar envio');
-    }
+    } catch (err) { alert('Erro ao iniciar'); }
   };
 
   if (!isLoggedIn) {
@@ -184,6 +189,9 @@ function App() {
             <div className="form-group" style={{ marginBottom: '2.25rem' }}><label>Senha</label><input type="password" value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})} required /></div>
             <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px' }} disabled={loading}>{loading ? 'Entrando...' : 'Acessar Agora'}</button>
           </form>
+          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+             <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Versão 5.0 - Hardened Build</p>
+          </div>
         </div>
       </div>
     );
@@ -210,17 +218,15 @@ function App() {
                </div>
                <div className="detail-frame" style={{ maxHeight: '200px' }}>
                  <p style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Conteúdo Gerado</p>
-                 {typeof selectedLog?.details === 'string' ? selectedLog.details : selectedLog?.details?.summary || 'Nenhum detalhe disponível.'}
+                 {typeof selectedLog?.details === 'string' ? selectedLog.details : selectedLog?.details?.summary || 'Sem detalhes.'}
                </div>
-               {selectedLog?.details?.successes?.length > 0 && (
+               {Array.isArray(selectedLog?.details?.successes) && selectedLog.details.successes.length > 0 && (
                  <div>
                    <p style={{ fontWeight: 700, fontSize: '0.75rem', marginBottom: '0.75rem', textTransform: 'uppercase', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                      <CheckCircle2 size={14} /> Enviado para {selectedLog.details.successes.length} contatos:
                    </p>
                    <div className="success-tag-grid">
-                     {selectedLog.details.successes.map((s, idx) => (
-                       <span key={idx} className="success-tag">{s}</span>
-                     ))}
+                     {selectedLog.details.successes.map((s, idx) => <span key={idx} className="success-tag">{s}</span>)}
                    </div>
                  </div>
                )}
@@ -249,7 +255,7 @@ function App() {
 
       <main>
         <header>
-          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Controle central de envios.</p></div>
+          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Controle central.</p></div>
           <div style={{ display: 'flex', gap: '0.75rem' }}><button className="btn btn-outline"><Bell size={18} /></button><button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Forçar Envio</button></div>
         </header>
 
@@ -272,7 +278,7 @@ function App() {
               </section>
 
               <section className="glass-card" style={{ padding: '1.5rem' }}>
-                <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><Clock size={18} /> Histórico Recente</h2><span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Últimos 6 registros</span></div>
+                <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><Clock size={18} /> Histórico</h2><span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Últimos 6</span></div>
                 <div className="compact-log-list">
                   {(logs || []).slice(0, 6).map(log => (
                     <div key={log.id} className="log-item" onClick={() => setSelectedLog(log)}>
@@ -280,7 +286,7 @@ function App() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}><span style={{ fontSize: '0.75rem', opacity: 0.4 }}>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}</span><ChevronRight size={14} opacity={0.3} /></div>
                     </div>
                   ))}
-                  {(!logs || logs.length === 0) && <p style={{ textAlign: 'center', opacity: 0.4, padding: '2rem' }}>Nenhum log encontrado.</p>}
+                  {(!logs || logs.length === 0) && <p style={{ textAlign: 'center', opacity: 0.4, padding: '2rem' }}>Nenhum registro.</p>}
                 </div>
               </section>
             </div>
@@ -291,7 +297,7 @@ function App() {
                 <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                   <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
                     <option value="">Todos os Contatos</option>
-                    {(contacts || []).map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
+                    {Array.isArray(contacts) && contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
                   </select>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
@@ -302,8 +308,8 @@ function App() {
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header"><h2><Calendar size={18} /> Agenda</h2></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="schedule-box"><Sun size={14} color="var(--warning)" /> <span>{settings?.morningTime}</span></div>
-                  <div className="schedule-box"><Moon size={14} color="var(--accent-secondary)" /> <span>{settings?.nightTime}</span></div>
+                  <div className="schedule-box"><Sun size={14} color="var(--warning)" /> <span>{settings?.morningTime || '--:--'}</span></div>
+                  <div className="schedule-box"><Moon size={14} color="var(--accent-secondary)" /> <span>{settings?.nightTime || '--:--'}</span></div>
                 </div>
               </section>
               <section className="glass-card compact-card">
@@ -327,7 +333,7 @@ function App() {
             <section className="glass-card">
               <div className="card-header"><h2><Users size={18} /> Lista ({contacts?.length || 0})</h2></div>
               <div className="contact-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {(contacts || []).map(c => (
+                {Array.isArray(contacts) && contacts.map(c => (
                   <div key={c.phone} className="contact-row" style={{ padding: '0.85rem 1rem' }}>
                     <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.name}</p><p style={{ fontSize: '0.75rem', opacity: 0.5 }}>{c.phone}</p></div>
                     <button onClick={() => removeContact(c.phone)} className="delete-btn"><Trash2 size={16} /></button>
@@ -343,17 +349,17 @@ function App() {
             <div className="col-8">
               <section className="glass-card">
                 <div className="card-header"><h2><Settings size={18} /> Ajustes AI</h2></div>
-                <div className="form-group"><label>Manhã</label><textarea rows="3" value={settings?.morningPrompt} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
-                <div className="form-group" style={{ marginTop: '1rem' }}><label>Noite</label><textarea rows="3" value={settings?.nightPrompt} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
+                <div className="form-group"><label>Manhã</label><textarea rows="3" value={settings?.morningPrompt || ''} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
+                <div className="form-group" style={{ marginTop: '1rem' }}><label>Noite</label><textarea rows="3" value={settings?.nightPrompt || ''} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', marginBottom: '2rem' }}>
-                  <div><label>Hora (Manhã)</label><input type="time" value={settings?.morningTime} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
-                  <div><label>Hora (Noite)</label><input type="time" value={settings?.nightTime} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
+                  <div><label>Hora (Manhã)</label><input type="time" value={settings?.morningTime || ''} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
+                  <div><label>Hora (Noite)</label><input type="time" value={settings?.nightTime || ''} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
                 </div>
                 <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%', height: '50px' }}>Salvar</button>
               </section>
             </div>
             <div className="col-4">
-              <section className="glass-card"><div className="card-header"><h2><Globe size={18} /> Servidor</h2></div><input value={settings?.apiUrl} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} /></section>
+              <section className="glass-card"><div className="card-header"><h2><Globe size={18} /> Servidor</h2></div><input value={settings?.apiUrl || ''} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} /></section>
             </div>
           </div>
         )}

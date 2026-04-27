@@ -1,4 +1,4 @@
-// WPP Auto Sender - Interface Premium v2
+// WPP Auto Sender - Interface Ultra-Compact Taste Skill
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -22,7 +22,8 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 
@@ -34,6 +35,7 @@ function App() {
   const [status, setStatus] = useState({ isReady: false, qrCodeData: null });
   const [contacts, setContacts] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [selectedLog, setSelectedLog] = useState(null);
   const [selectedTestContact, setSelectedTestContact] = useState('');
   const [settings, setSettings] = useState({
     morningPrompt: "Com fé e otimismo, gere uma mensagem calorosa de 'Bom Dia' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem matinal realista, vibrante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.",
@@ -44,7 +46,6 @@ function App() {
   });
   const [newContact, setNewContact] = useState({ name: '', phone: '' });
   const [loading, setLoading] = useState(false);
-  const [expandedLogId, setExpandedLogId] = useState(null);
 
   const API_BASE = settings.apiUrl || 'https://api.servicesbr.duckdns.org';
 
@@ -55,14 +56,9 @@ function App() {
 
   useEffect(() => {
     const savedApiUrl = localStorage.getItem('whatsapp_api_url');
-    if (savedApiUrl) {
-      setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
-    }
-
+    if (savedApiUrl) setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
     const savedAuth = sessionStorage.getItem('whatsapp_auth');
-    if (savedAuth) {
-      setIsLoggedIn(true);
-    }
+    if (savedAuth) setIsLoggedIn(true);
   }, []);
 
   useEffect(() => {
@@ -80,17 +76,13 @@ function App() {
     e.preventDefault();
     try {
       setLoading(true);
-      localStorage.setItem('whatsapp_api_url', settings.apiUrl);
-      
       const authString = btoa(`${loginForm.username}:${loginForm.password}`);
       const res = await axios.post(`${settings.apiUrl}/login`, loginForm);
-      
       if (res.data.success) {
         sessionStorage.setItem('whatsapp_auth', authString);
         setIsLoggedIn(true);
       }
     } catch (err) {
-      console.error('Login error:', err);
       alert('Falha na conexão ou credenciais inválidas.');
     } finally {
       setLoading(false);
@@ -115,7 +107,6 @@ function App() {
       setLogs(logsRes.data);
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
-      console.error('Error fetching data:', err);
     }
   };
 
@@ -170,19 +161,6 @@ function App() {
     }
   };
 
-  const clearCache = async () => {
-    if (!confirm('Limpar cache de hoje?')) return;
-    try {
-      setLoading(true);
-      await axios.post(`${API_BASE}/clear-cache`, {}, { headers: getAuthHeader() });
-      alert('Cache limpo!');
-    } catch (err) {
-      alert('Erro ao limpar cache');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const triggerTest = async (type, contactPhone = null) => {
     try {
       await axios.post(`${API_BASE}/test-now`, { type, contactPhone }, { headers: getAuthHeader() });
@@ -199,31 +177,12 @@ function App() {
           <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
             <img src={logoImg} alt="Logo" style={{ width: '80px', height: '80px', borderRadius: '22px', marginBottom: '1.5rem', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }} />
             <h1>WPP Auto Sender</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Controle de Automação</p>
+            <p style={{ color: 'var(--text-secondary)' }}>Acesso Restrito</p>
           </div>
-
           <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <label>Usuário</label>
-              <input 
-                type="text" 
-                value={loginForm.username}
-                onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
-                required
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: '2rem' }}>
-              <label>Senha</label>
-              <input 
-                type="password" 
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px' }} disabled={loading}>
-              {loading ? 'Acessando...' : 'Entrar no Sistema'}
-            </button>
+            <div className="form-group"><label>Usuário</label><input type="text" value={loginForm.username} onChange={(e) => setLoginForm({...loginForm, username: e.target.value})} required /></div>
+            <div className="form-group" style={{ marginBottom: '2rem' }}><label>Senha</label><input type="password" value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})} required /></div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px' }} disabled={loading}>{loading ? 'Autenticando...' : 'Entrar'}</button>
           </form>
         </div>
       </div>
@@ -232,199 +191,135 @@ function App() {
 
   return (
     <div className="app-wrapper">
-      {/* Mobile Backdrop Blur */}
-      {isSidebarOpen && (
-        <div 
-          style={{ 
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', 
-            backdropFilter: 'blur(8px)', zIndex: 90 
-          }} 
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Mobile Header Toggle */}
-      <div style={{ 
-        position: 'fixed', top: '1.5rem', left: '1.5rem', zIndex: 200, display: 'none'
-      }} className="mobile-only">
-        <button className="btn btn-outline" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ padding: '0.75rem' }}>
-          {isSidebarOpen ? <X /> : <Menu />}
-        </button>
+      {isSidebarOpen && <div className="mobile-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+      <div className="mobile-toggle mobile-only">
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)}>{isSidebarOpen ? <X /> : <Menu />}</button>
       </div>
 
       <aside className={isSidebarOpen ? 'open' : ''}>
-        <div className="logo">
-          <img src={logoImg} alt="WPP Auto Sender" />
-          WPP Auto Sender
-        </div>
-        
+        <div className="logo"><img src={logoImg} alt="Logo" /> WPP Sender</div>
         <nav>
-          <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}>
-            <LayoutDashboard size={20} /> Dashboard
-          </div>
-          <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => { setActiveTab('contacts'); setIsSidebarOpen(false); }}>
-            <Users size={20} /> Contatos
-          </div>
-          <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}>
-            <Settings size={20} /> Configurações
-          </div>
+          <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}><LayoutDashboard size={18} /> Dashboard</div>
+          <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => { setActiveTab('contacts'); setIsSidebarOpen(false); }}><Users size={18} /> Contatos</div>
+          <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}><Settings size={18} /> Ajustes</div>
         </nav>
-
         <div style={{ marginTop: 'auto' }}>
           <div className="status-card">
-            <div className={`status-badge ${status.isReady ? 'online' : 'offline'}`}>
-              <div className="indicator" /> {status.isReady ? 'Online' : 'Aguardando QR'}
-            </div>
-            <button onClick={handleLogout} className="btn-outline" style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', cursor: 'pointer' }}>
-               <LogOut size={14} /> Sair do Sistema
-            </button>
+            <div className={`status-badge ${status.isReady ? 'online' : 'offline'}`}><div className="indicator" /> {status.isReady ? 'Online' : 'Aguardando'}</div>
+            <button onClick={handleLogout} className="logout-btn"><LogOut size={14} /> Sair</button>
           </div>
         </div>
       </aside>
 
       <main>
-        <header className="animate-in">
-          <div>
-            <h1>
-              {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'contacts' && 'Contatos'}
-              {activeTab === 'settings' && 'Ajustes'}
-            </h1>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              {activeTab === 'dashboard' && 'Visão geral da sua automação diária.'}
-              {activeTab === 'contacts' && 'Gerencie os destinatários das mensagens.'}
-              {activeTab === 'settings' && 'Configure horários e prompts da IA.'}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn btn-outline"><Bell size={20} /></button>
-            <button className="btn btn-primary" onClick={() => document.getElementById('envio-imediato-section')?.scrollIntoView({ behavior: 'smooth' })}>
-              <Play size={18} /> Envio Imediato
-            </button>
+        <header>
+          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Gestão de envios diários.</p></div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+             <button className="btn btn-outline"><Bell size={18} /></button>
+             <button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Envio Manhã</button>
           </div>
         </header>
 
         {activeTab === 'dashboard' && (
           <div className="content-grid animate-in">
+            {/* Esquerda: Status + Logs (Frame Compacto) */}
             <div className="col-8">
-              <section className="glass-card" style={{ minHeight: '400px', display: 'flex', flexDirection: 'column', marginBottom: '2rem' }}>
-                <div className="card-header">
-                  <h2><Smartphone className="text-accent" /> Status da Instância</h2>
+              {/* Status Compacto */}
+              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header" style={{ marginBottom: status.isReady && !status.qrCodeData ? '0' : '1.5rem' }}>
+                  <h2><Smartphone size={18} /> Instância</h2>
+                  {status.isReady && <div className="status-badge online" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}><div className="indicator" /> Conectado</div>}
                 </div>
-                {!status.isReady ? (
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                {!status.isReady && (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem' }}>
                     {status.qrCodeData ? (
-                      <div className="qr-frame" style={{ background: 'white', padding: '1.5rem', borderRadius: '1.5rem' }}>
-                        <QRCodeSVG value={status.qrCodeData} size={240} level="H" />
+                      <div className="qr-frame" style={{ background: 'white', padding: '1rem', borderRadius: '1rem', marginBottom: '1rem' }}>
+                        <QRCodeSVG value={status.qrCodeData} size={160} level="H" />
                       </div>
-                    ) : (
-                      <div style={{ textAlign: 'center' }}>
-                        <RefreshCw className="animate-spin" size={48} style={{ opacity: 0.2, marginBottom: '1.5rem' }} />
-                        <p style={{ color: 'var(--text-secondary)' }}>Conectando ao WhatsApp...</p>
-                      </div>
-                    )}
-                    <p style={{ marginTop: '2rem', opacity: 0.7, maxWidth: '280px', textAlign: 'center', fontSize: '0.9rem' }}>
-                      Abra o WhatsApp no celular, vá em Aparelhos Conectados e escaneie o QR Code.
-                    </p>
-                  </div>
-                ) : (
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ 
-                      width: '100px', height: '100px', borderRadius: '50%', 
-                      background: 'rgba(16, 185, 129, 0.1)', display: 'flex', 
-                      alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem'
-                    }}>
-                      <CheckCircle2 size={50} color="var(--accent-primary)" />
-                    </div>
-                    <h3>WhatsApp Conectado</h3>
-                    <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Sua automação está em execução.</p>
+                    ) : <RefreshCw className="animate-spin" style={{ opacity: 0.2 }} />}
+                    <p style={{ fontSize: '0.8rem', opacity: 0.6, textAlign: 'center' }}>Escaneie para conectar</p>
                   </div>
                 )}
               </section>
 
-              <section className="glass-card">
-                <div className="card-header">
-                  <h2><LayoutDashboard /> Histórico Recente</h2>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {logs.length > 0 ? logs.map(log => (
-                    <div key={log.id} className="contact-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              {/* Histórico com Frame Lateral de Detalhes */}
+              <div style={{ display: 'grid', gridTemplateColumns: selectedLog ? '1fr 1.2fr' : '1fr', gap: '1.5rem', transition: '0.4s ease' }}>
+                <section className="glass-card" style={{ padding: '1.5rem' }}>
+                  <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><LayoutDashboard size={18} /> Histórico</h2></div>
+                  <div className="compact-log-list">
+                    {logs.slice(0, 6).map(log => (
                       <div 
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                        onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                        key={log.id} 
+                        className={`log-item ${selectedLog?.id === log.id ? 'selected' : ''}`}
+                        onClick={() => setSelectedLog(log)}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          {log.status === 'success' ? <CheckCircle2 size={18} color="var(--success)" /> : <XCircle size={18} color="var(--danger)" />}
-                          <div>
-                            <p style={{ fontWeight: 600 }}>{log.type === 'morning' ? 'Bom Dia' : 'Boa Noite'}</p>
-                            <p style={{ fontSize: '0.75rem', opacity: 0.6 }}>{new Date(log.timestamp).toLocaleString('pt-BR')}</p>
-                          </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          {log.status === 'success' ? <CheckCircle2 size={14} color="var(--success)" /> : <XCircle size={14} color="var(--danger)" />}
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{log.type === 'morning' ? 'Manhã' : 'Noite'}</span>
                         </div>
-                        <ChevronRight size={18} style={{ transform: expandedLogId === log.id ? 'rotate(90deg)' : 'none', transition: '0.3s' }} />
+                        <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>{new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                      {expandedLogId === log.id && (
-                        <div style={{ marginTop: '1.25rem', padding: '1.25rem', background: 'rgba(0,0,0,0.15)', borderRadius: '1rem' }}>
-                           <p style={{ fontSize: '0.85rem' }}>{typeof log.details === 'string' ? log.details : log.details?.summary}</p>
-                           {log.details?.successes?.length > 0 && (
-                             <p style={{ marginTop: '0.5rem', color: 'var(--success)', fontSize: '0.8rem' }}>Enviado com sucesso para {log.details.successes.length} contatos.</p>
-                           )}
+                    ))}
+                  </div>
+                </section>
+
+                {selectedLog && (
+                  <section className="glass-card animate-in" style={{ padding: '1.5rem', border: '1px solid var(--accent-primary)' }}>
+                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                      <h2><Info size={18} /> Detalhes</h2>
+                      <X size={18} style={{ cursor: 'pointer' }} onClick={() => setSelectedLog(null)} />
+                    </div>
+                    <div style={{ fontSize: '0.85rem' }}>
+                      <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>{new Date(selectedLog.timestamp).toLocaleString('pt-BR')}</p>
+                      <div className="detail-frame">
+                        {typeof selectedLog.details === 'string' ? selectedLog.details : selectedLog.details?.summary}
+                      </div>
+                      {selectedLog.details?.successes?.length > 0 && (
+                        <div style={{ marginTop: '1rem' }}>
+                          <p style={{ fontWeight: 700, fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', color: 'var(--success)' }}>Enviado para:</p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                            {selectedLog.details.successes.slice(0, 10).map((s, idx) => (
+                              <span key={idx} style={{ padding: '0.2rem 0.5rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.4rem', fontSize: '0.65rem' }}>{s}</span>
+                            ))}
+                            {selectedLog.details.successes.length > 10 && <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>+{selectedLog.details.successes.length - 10} mais</span>}
+                          </div>
                         </div>
                       )}
                     </div>
-                  )) : <p style={{ opacity: 0.4, textAlign: 'center' }}>Sem logs registrados.</p>}
-                </div>
-              </section>
+                  </section>
+                )}
+              </div>
             </div>
-            
+
+            {/* Direita: Controles e Audiência */}
             <div className="col-4">
-              <section id="envio-imediato-section" className="glass-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header">
-                  <h2><PlayCircle /> Envio Agora</h2>
-                </div>
-                <div className="form-group">
-                  <label>Selecione um contato (opcional)</label>
-                  <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
-                    <option value="">Enviar para todos</option>
+              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header"><h2><PlayCircle size={18} /> Envio Agora</h2></div>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)} style={{ padding: '0.7rem', fontSize: '0.85rem' }}>
+                    <option value="">Todos Contatos</option>
                     {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
                   </select>
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ padding: '0.6rem', fontSize: '0.8rem' }}><Sun size={14} /> Manhã</button>
+                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ padding: '0.6rem', fontSize: '0.8rem', background: 'var(--accent-secondary)' }}><Moon size={14} /> Noite</button>
+                </div>
+              </section>
+
+              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header"><h2><Clock size={18} /> Agenda</h2></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
-                    <Sun size={16} /> Bom Dia
-                  </button>
-                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ padding: '0.75rem', fontSize: '0.85rem', background: 'var(--accent-secondary)' }}>
-                    <Moon size={16} /> Boa Noite
-                  </button>
+                  <div className="schedule-box"><Sun size={14} color="var(--warning)" /> <span>{settings.morningTime}</span></div>
+                  <div className="schedule-box"><Moon size={14} color="var(--accent-secondary)" /> <span>{settings.nightTime}</span></div>
                 </div>
               </section>
 
-              <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header">
-                  <h2><Clock /> Agenda</h2>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div className="contact-row" style={{ background: 'rgba(245, 158, 11, 0.08)', border: 'none' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <Sun size={20} color="var(--warning)" />
-                      <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>Bom Dia</p><p style={{ fontSize: '0.75rem', opacity: 0.6 }}>{settings.morningTime}</p></div>
-                    </div>
-                  </div>
-                  <div className="contact-row" style={{ background: 'rgba(14, 165, 233, 0.08)', border: 'none' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <Moon size={20} color="var(--accent-secondary)" />
-                      <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>Boa Noite</p><p style={{ fontSize: '0.75rem', opacity: 0.6 }}>{settings.nightTime}</p></div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="glass-card">
-                <div className="card-header">
-                  <h2><Users /> Audiência</h2>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <h2 style={{ fontSize: '3rem', margin: '0.5rem 0' }}>{contacts.length}</h2>
-                  <p style={{ opacity: 0.6, fontSize: '0.9rem' }}>Contatos cadastrados</p>
+              <section className="glass-card compact-card">
+                <div className="card-header"><h2><Users size={18} /> Audiência</h2></div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                  <h2 style={{ fontSize: '2rem' }}>{contacts.length}</h2>
+                  <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>cadastrados</span>
                 </div>
               </section>
             </div>
@@ -434,21 +329,20 @@ function App() {
         {activeTab === 'contacts' && (
           <div className="animate-in">
             <section className="glass-card" style={{ marginBottom: '2rem' }}>
-              <div className="card-header"><h2><Plus /> Novo Contato</h2></div>
-              <form onSubmit={addContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1.25rem', alignItems: 'end' }}>
-                <div><label>Nome</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required placeholder="Ex: João" /></div>
-                <div><label>WhatsApp</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required placeholder="55..." /></div>
-                <button type="submit" className="btn btn-primary" style={{ height: '54px' }}>Adicionar</button>
+              <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>
+              <form onSubmit={addContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+                <div><label>Nome</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required /></div>
+                <div><label>WhatsApp</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required /></div>
+                <button type="submit" className="btn btn-primary" style={{ height: '48px' }}>Adicionar</button>
               </form>
             </section>
-
             <section className="glass-card">
-              <div className="card-header"><h2><Users /> Lista Atual ({contacts.length})</h2></div>
+              <div className="card-header"><h2><Users size={18} /> Lista Atual ({contacts.length})</h2></div>
               <div className="contact-list">
                 {contacts.map(c => (
-                  <div key={c.phone} className="contact-row">
-                    <div><p style={{ fontWeight: 700 }}>{c.name}</p><p style={{ fontSize: '0.8rem', opacity: 0.6 }}>{c.phone}</p></div>
-                    <button onClick={() => removeContact(c.phone)} className="btn-outline" style={{ padding: '0.6rem', color: 'var(--danger)', borderRadius: '0.75rem' }}><Trash2 size={18} /></button>
+                  <div key={c.phone} className="contact-row" style={{ padding: '1rem' }}>
+                    <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.name}</p><p style={{ fontSize: '0.75rem', opacity: 0.5 }}>{c.phone}</p></div>
+                    <button onClick={() => removeContact(c.phone)} className="delete-btn"><Trash2 size={16} /></button>
                   </div>
                 ))}
               </div>
@@ -460,31 +354,18 @@ function App() {
           <div className="content-grid animate-in">
             <div className="col-8">
               <section className="glass-card">
-                <div className="card-header"><h2><Settings /> IA Prompts</h2></div>
-                <div className="form-group">
-                  <label>Mensagem de Bom Dia</label>
-                  <textarea rows="4" value={settings.morningPrompt} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} />
+                <div className="card-header"><h2><Settings size={18} /> IA Prompts</h2></div>
+                <div className="form-group"><label>Manhã</label><textarea rows="3" value={settings.morningPrompt} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
+                <div className="form-group"><label>Noite</label><textarea rows="3" value={settings.nightPrompt} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div><label>Hora Manhã</label><input type="time" value={settings.morningTime} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
+                  <div><label>Hora Noite</label><input type="time" value={settings.nightTime} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
                 </div>
-                <div className="form-group">
-                  <label>Mensagem de Boa Noite</label>
-                  <textarea rows="4" value={settings.nightPrompt} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2.5rem' }}>
-                  <div><label>Horário Manhã</label><input type="time" value={settings.morningTime} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
-                  <div><label>Horário Noite</label><input type="time" value={settings.nightTime} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
-                </div>
-                <button className="btn btn-primary" onClick={saveSettings} disabled={loading} style={{ width: '100%' }}>Salvar Alterações</button>
+                <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%' }}>Salvar</button>
               </section>
             </div>
             <div className="col-4">
-              <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header"><h2><Globe /> Endpoint</h2></div>
-                <input value={settings.apiUrl} onChange={(e) => { setSettings({...settings, apiUrl: e.target.value}); localStorage.setItem('whatsapp_api_url', e.target.value); }} />
-              </section>
-              <section className="glass-card">
-                <div className="card-header"><h2><Trash2 color="var(--danger)" /> Cache</h2></div>
-                <button onClick={clearCache} className="btn-outline" style={{ width: '100%', color: 'var(--danger)' }}><RefreshCw size={14} style={{ marginRight: 8 }} /> Limpar Agora</button>
-              </section>
+              <section className="glass-card"><div className="card-header"><h2><Globe size={18} /> API</h2></div><input value={settings.apiUrl} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} /></section>
             </div>
           </div>
         )}

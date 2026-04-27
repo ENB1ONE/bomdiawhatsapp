@@ -53,9 +53,9 @@ async function generateImage(prompt, type = "morning") {
                     parts: [{
                         text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa e ÚNICA para WhatsApp. 
                         REGRAS:
-                        1. A mensagem deve ser calorosa e variar temas (esperança, fé, gratidão, saúde) para nunca parecer repetitiva.
+                        1. A mensagem de texto deve ter NO MÁXIMO 300 caracteres, ser calorosa e variar temas (esperança, fé, gratidão, saúde). Pode usar emojis na mensagem.
                         2. Gere também um prompt detalhado em INGLÊS para geração de imagem. 
-                        3. CRÍTICO: Modelos de IA falham ao escrever em português. Portanto, o prompt da imagem NÃO DEVE pedir para escrever textos. A imagem DEVE ser puramente visual (sem letras, sem frases, sem textos). Adicione no final do prompt da imagem: "no text, no letters, no watermark, no writing".
+                        3. CRÍTICO PARA A IMAGEM: O prompt da imagem NÃO DEVE conter emojis (isso estraga a geração). O prompt da imagem DEVE focar em ser realista e puramente visual (sem letras, frases ou textos). Adicione no final do prompt da imagem: "photorealistic, cinematic lighting, no text, no letters, no watermark, no writing, no emojis".
                         
                         Responda APENAS com um JSON no formato:
                         {
@@ -84,7 +84,7 @@ async function generateImage(prompt, type = "morning") {
         // nós forçamos a remoção dessa instrução adicionando regras restritas no final.
         let enhancedPrompt = aiResponse.image_prompt;
         if (enhancedPrompt === prompt) {
-            enhancedPrompt += " - SUPER IMPORTANT: Make this image PURELY VISUAL. No text, no letters, no writing, no watermark, no words.";
+            enhancedPrompt += " - SUPER IMPORTANT: Make this image PURELY VISUAL. Photorealistic, no text, no letters, no writing, no watermark, no words, no emojis.";
         }
         
         const finalCaption = aiResponse.message;

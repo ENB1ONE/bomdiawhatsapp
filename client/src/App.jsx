@@ -296,7 +296,7 @@ function App() {
         {activeTab === 'dashboard' && (
           <div className="content-grid animate-in">
             <div className="col-8">
-              <section className="glass-card" style={{ minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
+              <section className="glass-card" style={{ minHeight: '400px', display: 'flex', flexDirection: 'column', marginBottom: '2rem' }}>
                 <div className="card-header">
                   <h2><Smartphone className="text-accent" /> Status da Instância</h2>
                 </div>
@@ -330,62 +330,7 @@ function App() {
                   </div>
                 )}
               </section>
-            </div>
-            
-            <div className="col-4">
-              <section id="envio-imediato-section" className="glass-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header">
-                  <h2><PlayCircle /> Envio Agora</h2>
-                </div>
-                <div className="form-group">
-                  <label>Selecione um contato (opcional)</label>
-                  <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
-                    <option value="">Enviar para todos</option>
-                    {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ padding: '0.75rem', fontSize: '0.85rem' }}>
-                    <Sun size={16} /> Bom Dia
-                  </button>
-                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ padding: '0.75rem', fontSize: '0.85rem', background: 'var(--accent-secondary)' }}>
-                    <Moon size={16} /> Boa Noite
-                  </button>
-                </div>
-              </section>
 
-              <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header">
-                  <h2><Clock /> Agenda</h2>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  <div className="contact-row" style={{ background: 'rgba(245, 158, 11, 0.08)', border: 'none' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <Sun size={20} color="var(--warning)" />
-                      <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>Bom Dia</p><p style={{ fontSize: '0.75rem', opacity: 0.6 }}>{settings.morningTime}</p></div>
-                    </div>
-                  </div>
-                  <div className="contact-row" style={{ background: 'rgba(14, 165, 233, 0.08)', border: 'none' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <Moon size={20} color="var(--accent-secondary)" />
-                      <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>Boa Noite</p><p style={{ fontSize: '0.75rem', opacity: 0.6 }}>{settings.nightTime}</p></div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="glass-card">
-                <div className="card-header">
-                  <h2><Users /> Audiência</h2>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <h2 style={{ fontSize: '3rem', margin: '0.5rem 0' }}>{contacts.length}</h2>
-                  <p style={{ opacity: 0.6, fontSize: '0.9rem' }}>Contatos cadastrados</p>
-                </div>
-              </section>
-            </div>
-
-            <div className="col-12">
               <section className="glass-card">
                 <div className="card-header">
                   <h2><LayoutDashboard /> Histórico Recente</h2>

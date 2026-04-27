@@ -210,16 +210,6 @@ function App() {
 
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label>URL da API do Servidor</label>
-              <input 
-                type="url" 
-                value={settings.apiUrl}
-                onChange={(e) => setSettings({...settings, apiUrl: e.target.value})}
-                placeholder="https://sua-api.duckdns.org"
-                required
-              />
-            </div>
-            <div className="form-group">
               <label>Usuário</label>
               <input 
                 type="text" 

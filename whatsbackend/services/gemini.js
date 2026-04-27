@@ -55,12 +55,12 @@ async function generateImage(prompt, type = "morning") {
                         REGRAS:
                         1. A mensagem deve ser calorosa e variar temas (esperança, fé, gratidão, saúde) para nunca parecer repetitiva.
                         2. Gere também um prompt detalhado em INGLÊS para geração de imagem. 
-                        3. O prompt da imagem DEVE obrigatoriamente incluir a instrução para que o texto "${type === 'morning' ? 'Bom Dia' : 'Boa Noite'}" esteja escrito de forma legível, artística e centralizada na imagem.
+                        3. CRÍTICO: Modelos de IA falham ao escrever em português. Portanto, o prompt da imagem NÃO DEVE pedir para escrever textos. A imagem DEVE ser puramente visual (sem letras, sem frases, sem textos). Adicione no final do prompt da imagem: "no text, no letters, no watermark, no writing".
                         
                         Responda APENAS com um JSON no formato:
                         {
                           "message": "texto da mensagem aqui com emojis",
-                          "image_prompt": "detailed image description in english including the text overlay instruction"
+                          "image_prompt": "detailed image description in english focusing ONLY on visuals, no text"
                         }`
                     }]
                 }]
@@ -80,7 +80,13 @@ async function generateImage(prompt, type = "morning") {
         console.log("AI Message:", aiResponse.message);
         console.log("AI Image Prompt:", aiResponse.image_prompt);
 
-        const enhancedPrompt = aiResponse.image_prompt;
+        // Se a IA falhou e estamos usando o prompt original em português que pedia texto, 
+        // nós forçamos a remoção dessa instrução adicionando regras restritas no final.
+        let enhancedPrompt = aiResponse.image_prompt;
+        if (enhancedPrompt === prompt) {
+            enhancedPrompt += " - SUPER IMPORTANT: Make this image PURELY VISUAL. No text, no letters, no writing, no watermark, no words.";
+        }
+        
         const finalCaption = aiResponse.message;
 
         // Usamos Pollinations.ai como motor principal de imagem (mais rápido e sem restrições de chave)

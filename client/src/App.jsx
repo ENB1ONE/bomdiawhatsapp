@@ -199,13 +199,13 @@ function App() {
         <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '440px', padding: '2.5rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{ 
-              width: '64px', height: '64px', background: 'var(--accent-primary)', borderRadius: '16px', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' 
+              width: '80px', height: '80px', margin: '0 auto 1.5rem',
+              overflow: 'hidden', borderRadius: '20px'
             }}>
-              <Globe size={32} color="white" />
+              <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
-            <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Acesso Restrito</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Configure e gerencie sua automação</p>
+            <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>WPP Auto Sender</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>Acesso restrito ao sistema de automação</p>
           </div>
 
           <form onSubmit={handleLogin}>
@@ -241,8 +241,8 @@ function App() {
       {/* Sidebar Navigation */}
       <aside>
         <div className="logo">
-          <Globe size={28} />
-          AutoGreet Pro
+          <img src="/logo.png" alt="WPP Auto Sender" style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} />
+          WPP Auto Sender
         </div>
         
         <nav>

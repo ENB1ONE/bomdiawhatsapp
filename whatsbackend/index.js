@@ -163,8 +163,8 @@ function sanitizePhone(phone) {
 }
 
 // Logic to run automation
-async function runAutomation(type) {
-    console.log(`\n--- STARTING ${type.toUpperCase()} AUTOMATION ---`);
+async function runAutomation(type, targetPhone = null) {
+    console.log(`\n--- STARTING ${type.toUpperCase()} AUTOMATION ${targetPhone ? `(TEST FOR ${targetPhone})` : ''} ---`);
     const db = getDB();
     const { morningPrompt, nightPrompt } = db.settings;
     const prompt = type === 'morning' ? morningPrompt : nightPrompt;
@@ -184,16 +184,28 @@ async function runAutomation(type) {
         let successes = [];
         let failures = [];
 
-        for (const contact of db.contacts) {
+        // Filtra contatos se houver um targetPhone específico
+        const contactsToSend = targetPhone 
+            ? db.contacts.filter(c => sanitizePhone(c.phone) === sanitizePhone(targetPhone))
+            : db.contacts;
+
+        if (targetPhone && contactsToSend.length === 0) {
+            // Se o contato de teste não existe no BD, enviamos direto para ele mesmo assim
+            contactsToSend.push({ name: "Teste", phone: targetPhone });
+        }
+
+        for (const contact of contactsToSend) {
             try {
                 const cleanPhone = sanitizePhone(contact.phone);
                 console.log(`Sending to ${contact.name} (${cleanPhone})...`);
                 await sendMessage(cleanPhone, finalGreeting, finalImage);
                 successes.push({ name: contact.name, phone: cleanPhone });
                 
-                // Delay aleatório entre 5 e 15 segundos para simular comportamento humano
-                const delay = Math.floor(Math.random() * (15000 - 5000 + 1) + 5000);
-                await new Promise(r => setTimeout(r, delay));
+                if (contactsToSend.length > 1) {
+                    // Delay aleatório apenas para múltiplos envios
+                    const delay = Math.floor(Math.random() * (15000 - 5000 + 1) + 5000);
+                    await new Promise(r => setTimeout(r, delay));
+                }
             } catch (err) {
                 console.error(`Failed to send to ${contact.phone}:`, err.message || err.toString());
                 failures.push({ name: contact.name, phone: contact.phone, error: err.message || err.toString() });
@@ -251,9 +263,22 @@ function scheduleAllJobs() {
 
 // Manual Trigger
 app.post('/test-now', async (req, res) => {
-    const { type } = req.body; 
-    runAutomation(type || 'morning');
-    res.json({ success: true, message: "Automation started manually" });
+    const { type, contactPhone } = req.body; 
+    runAutomation(type || 'morning', contactPhone);
+    res.json({ success: true, message: contactPhone ? `Teste enviado para ${contactPhone}` : "Automação iniciada" });
+});
+
+// Clear Cache endpoint
+app.post('/clear-cache', (req, res) => {
+    const cacheDir = path.join(process.cwd(), 'cache');
+    if (fs.existsSync(cacheDir)) {
+        const files = fs.readdirSync(cacheDir);
+        for (const file of files) {
+            fs.unlinkSync(path.join(cacheDir, file));
+        }
+    }
+    console.log("Cache de imagens e textos limpo pelo usuário.");
+    res.json({ success: true, message: "Cache limpo com sucesso" });
 });
 
 // Settings update with reschedule

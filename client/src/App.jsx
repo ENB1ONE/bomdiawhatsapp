@@ -28,6 +28,7 @@ function App() {
   const [status, setStatus] = useState({ isReady: false, qrCodeData: null });
   const [contacts, setContacts] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [selectedTestContact, setSelectedTestContact] = useState('');
   const [settings, setSettings] = useState({
     morningPrompt: 'Aja como uma tia ou avó carinhosa, otimista e de muita fé. Gere uma mensagem de "Bom Dia" calorosa para o WhatsApp com palavras de encorajamento, saúde e esperança (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem matinal vibrante, iluminada e realista que traga paz. A imagem DEVE conter o texto "Bom Dia" de forma legível e artística.',
     nightPrompt: 'Aja como uma tia ou avó carinhosa e de muita fé. Gere uma mensagem de "Boa Noite" serena para o WhatsApp com palavras de gratidão pelo dia, proteção e descanso (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem noturna aconchegante, com estrelas ou luz suave que traga tranquilidade. A imagem DEVE conter o texto "Boa Noite" de forma legível.',
@@ -169,10 +170,23 @@ function App() {
     }
   };
 
-  const triggerTest = async (type) => {
+  const clearCache = async () => {
+    if (!confirm('Deseja realmente limpar o cache de imagens e textos? Isso forçará a geração de novo conteúdo no próximo envio.')) return;
     try {
-      await axios.post(`${API_BASE}/test-now`, { type }, { headers: getAuthHeader() });
-      alert(`Automação de ${type === 'morning' ? 'Bom dia' : 'Boa noite'} iniciada!`);
+      setLoading(true);
+      await axios.post(`${API_BASE}/clear-cache`, {}, { headers: getAuthHeader() });
+      alert('Cache limpo com sucesso!');
+    } catch (err) {
+      alert('Erro ao limpar cache');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triggerTest = async (type, contactPhone = null) => {
+    try {
+      await axios.post(`${API_BASE}/test-now`, { type, contactPhone }, { headers: getAuthHeader() });
+      alert(`Teste de ${type === 'morning' ? 'Bom dia' : 'Boa noite'} solicitado${contactPhone ? ` para o contato selecionado` : ' para toda a lista'}!`);
     } catch (err) {
       alert('Erro ao iniciar teste');
     }
@@ -343,6 +357,40 @@ function App() {
             </div>
             
             <div className="col-4">
+              <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header">
+                  <h2><PlayCircle /> Teste Rápido</h2>
+                </div>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label style={{ fontSize: '0.75rem' }}>Enviar teste para:</label>
+                  <select 
+                    value={selectedTestContact} 
+                    onChange={(e) => setSelectedTestContact(e.target.value)}
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.5rem', 
+                      borderRadius: '0.5rem', 
+                      background: 'rgba(255,255,255,0.05)', 
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'white'
+                    }}
+                  >
+                    <option value="">Toda a Lista</option>
+                    {contacts.map(c => (
+                      <option key={c.phone} value={c.phone}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ padding: '0.5rem', fontSize: '0.8125rem' }}>
+                    <Sun size={14} /> Teste Bom Dia
+                  </button>
+                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ padding: '0.5rem', fontSize: '0.8125rem', background: '#6366f1' }}>
+                    <Moon size={14} /> Teste Boa Noite
+                  </button>
+                </div>
+              </section>
+
               <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header">
                   <h2><Clock /> Próximos Envios</h2>
@@ -587,7 +635,7 @@ function App() {
             </div>
 
             <div className="col-4">
-              <section className="glass-card">
+              <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header">
                   <h2><Globe /> Servidor Backend</h2>
                 </div>
@@ -603,6 +651,23 @@ function App() {
                     Altere esta URL se estiver usando um túnel (Ngrok/LocalTunnel) para acessar o servidor local via GitHub Pages.
                   </p>
                 </div>
+              </section>
+
+              <section className="glass-card" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                <div className="card-header">
+                  <h2><Trash2 className="text-danger" /> Manutenção</h2>
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  Limpe o cache para forçar a IA a gerar uma nova imagem e texto no próximo envio.
+                </p>
+                <button 
+                  className="btn-outline" 
+                  onClick={clearCache}
+                  disabled={loading}
+                  style={{ width: '100%', borderColor: 'rgba(239, 68, 68, 0.4)', color: 'var(--danger)' }}
+                >
+                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} style={{ marginRight: '8px' }} /> Limpar Cache de Conteúdo
+                </button>
               </section>
             </div>
           </div>

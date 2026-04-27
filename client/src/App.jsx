@@ -293,8 +293,8 @@ function App() {
             <button className="btn btn-outline" style={{ padding: '0.5rem' }}>
               <Bell size={20} />
             </button>
-            <button className="btn btn-primary" onClick={() => triggerTest('morning')}>
-              <Play size={16} /> Teste Rápido
+            <button className="btn btn-primary" onClick={() => document.getElementById('envio-imediato-section')?.scrollIntoView({ behavior: 'smooth' })}>
+              <Play size={16} /> Envio Imediato
             </button>
           </div>
         </header>
@@ -348,7 +348,7 @@ function App() {
             </div>
             
             <div className="col-4">
-              <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
+              <section id="envio-imediato-section" className="glass-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header">
                   <h2><PlayCircle /> Envio Imediato</h2>
                 </div>

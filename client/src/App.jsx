@@ -258,7 +258,7 @@ function App() {
                            </div>
                            {Array.isArray(log.details?.successes) && log.details.successes.length > 0 && (
                              <div className="success-tag-grid">
-                               {log.details.successes.map((s, idx) => <span key={idx} className="success-tag">{s}</span>)}
+                               {log.details.successes.map((s, idx) => <span key={idx} className="success-tag">{s.name || s.phone || 'Contato'}</span>)}
                              </div>
                            )}
                         </div>

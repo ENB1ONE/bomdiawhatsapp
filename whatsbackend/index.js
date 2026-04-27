@@ -270,15 +270,26 @@ app.post('/test-now', async (req, res) => {
 
 // Clear Cache endpoint
 app.post('/clear-cache', (req, res) => {
-    const cacheDir = path.join(process.cwd(), 'cache');
-    if (fs.existsSync(cacheDir)) {
-        const files = fs.readdirSync(cacheDir);
-        for (const file of files) {
-            fs.unlinkSync(path.join(cacheDir, file));
+    try {
+        const cacheDir = path.join(__dirname, 'cache');
+        if (fs.existsSync(cacheDir)) {
+            const files = fs.readdirSync(cacheDir);
+            for (const file of files) {
+                try {
+                    fs.unlinkSync(path.join(cacheDir, file));
+                } catch (e) {
+                    console.error(`Erro ao deletar arquivo ${file}:`, e.message);
+                }
+            }
+            console.log("Cache de imagens e textos limpo pelo usuário.");
+            res.json({ success: true, message: "Cache limpo com sucesso" });
+        } else {
+            res.json({ success: true, message: "Cache já estava vazio" });
         }
+    } catch (err) {
+        console.error("Erro fatal ao limpar cache:", err);
+        res.status(500).json({ success: false, error: err.message });
     }
-    console.log("Cache de imagens e textos limpo pelo usuário.");
-    res.json({ success: true, message: "Cache limpo com sucesso" });
 });
 
 // Settings update with reschedule

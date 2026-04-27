@@ -350,10 +350,10 @@ function App() {
             <div className="col-4">
               <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header">
-                  <h2><PlayCircle /> Teste Rápido</h2>
+                  <h2><PlayCircle /> Envio Imediato</h2>
                 </div>
                 <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label style={{ fontSize: '0.75rem' }}>Enviar teste para:</label>
+                  <label style={{ fontSize: '0.75rem' }}>Destino do envio:</label>
                   <select 
                     value={selectedTestContact} 
                     onChange={(e) => setSelectedTestContact(e.target.value)}
@@ -377,10 +377,10 @@ function App() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                   <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ padding: '0.5rem', fontSize: '0.8125rem' }}>
-                    <Sun size={14} /> Teste Bom Dia
+                    <Sun size={14} /> Enviar Bom Dia
                   </button>
                   <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ padding: '0.5rem', fontSize: '0.8125rem', background: '#6366f1' }}>
-                    <Moon size={14} /> Teste Boa Noite
+                    <Moon size={14} /> Enviar Boa Noite
                   </button>
                 </div>
               </section>

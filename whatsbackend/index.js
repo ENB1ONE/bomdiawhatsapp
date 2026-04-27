@@ -67,8 +67,8 @@ if (!fs.existsSync(DB_PATH)) {
         contacts: [],
         logs: [],
         settings: {
-            morningPrompt: "Aja como uma tia ou avó carinhosa, otimista e de muita fé. Gere uma mensagem de 'Bom Dia' calorosa para o WhatsApp com palavras de encorajamento, saúde e esperança (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem matinal vibrante, iluminada e realista que traga paz. A imagem DEVE ser puramente visual, sem conter letras ou textos.",
-            nightPrompt: "Aja como uma tia ou avó carinhosa e de muita fé. Gere uma mensagem de 'Boa Noite' serena para o WhatsApp com palavras de gratidão pelo dia, proteção e descanso (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem noturna aconchegante, com estrelas ou luz suave que traga tranquilidade. A imagem DEVE ser puramente visual, sem conter letras ou textos.",
+            morningPrompt: "Com fé e otimismo, gere uma mensagem calorosa de 'Bom Dia' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem matinal realista, vibrante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.",
+            nightPrompt: "Com fé e otimismo, gere uma mensagem calorosa de 'Boa Noite' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem noturna realista, aconchegante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.",
             morningTime: "08:00",
             nightTime: "20:00"
         }
@@ -76,8 +76,8 @@ if (!fs.existsSync(DB_PATH)) {
     fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
 }
 
-const DEFAULT_MORNING = 'Aja como uma tia ou avó carinhosa, otimista e de muita fé. Gere uma mensagem de "Bom Dia" calorosa para o WhatsApp com palavras de encorajamento, saúde e esperança (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem matinal vibrante, iluminada e realista que traga paz. A imagem DEVE ser puramente visual, sem conter letras ou textos.';
-const DEFAULT_NIGHT = 'Aja como uma tia ou avó carinhosa e de muita fé. Gere uma mensagem de "Boa Noite" serena para o WhatsApp com palavras de gratidão pelo dia, proteção e descanso (use emojis). Além do texto, crie a descrição detalhada (em inglês) de uma imagem noturna aconchegante, com estrelas ou luz suave que traga tranquilidade. A imagem DEVE ser puramente visual, sem conter letras ou textos.';
+const DEFAULT_MORNING = "Com fé e otimismo, gere uma mensagem calorosa de 'Bom Dia' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem matinal realista, vibrante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.";
+const DEFAULT_NIGHT = "Com fé e otimismo, gere uma mensagem calorosa de 'Boa Noite' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem noturna realista, aconchegante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.";
 
 function getDB() {
     const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
@@ -85,32 +85,18 @@ function getDB() {
     
     // Migração automática para garantir os novos prompts ricos e remover instruções antigas de texto na imagem
     let changed = false;
-    
-    const fixPromptText = (text) => {
-        if (!text) return text;
-        return text.replace(/A imagem DEVE conter o texto.*?legível[^\.]*\./gi, "A imagem DEVE ser puramente visual, sem conter letras ou textos.");
-    };
 
-    if (!db.settings.morningPrompt || db.settings.morningPrompt.length < 100) {
+    // Se o usuário ainda estiver usando o padrão antigo (Aja como uma tia...), forçamos a atualização para o novo padrão solicitado.
+    const isOldPattern = (text) => text && text.includes("Aja como uma tia");
+
+    if (!db.settings.morningPrompt || db.settings.morningPrompt.length < 50 || isOldPattern(db.settings.morningPrompt)) {
         db.settings.morningPrompt = DEFAULT_MORNING;
         changed = true;
-    } else {
-        const fixed = fixPromptText(db.settings.morningPrompt);
-        if (fixed !== db.settings.morningPrompt) {
-            db.settings.morningPrompt = fixed;
-            changed = true;
-        }
     }
 
-    if (!db.settings.nightPrompt || db.settings.nightPrompt.length < 100) {
+    if (!db.settings.nightPrompt || db.settings.nightPrompt.length < 50 || isOldPattern(db.settings.nightPrompt)) {
         db.settings.nightPrompt = DEFAULT_NIGHT;
         changed = true;
-    } else {
-        const fixed = fixPromptText(db.settings.nightPrompt);
-        if (fixed !== db.settings.nightPrompt) {
-            db.settings.nightPrompt = fixed;
-            changed = true;
-        }
     }
     
     if (changed) saveDB(db);

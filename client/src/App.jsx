@@ -1,4 +1,4 @@
-// WPP Auto Sender - Interface Liquid Glass v5 (Final Hardening)
+// WPP Auto Sender - Interface Estável v6
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -22,9 +22,9 @@ import {
   Menu,
   X,
   LogOut,
-  Info,
-  Calendar,
-  ChevronRight
+  ChevronDown,
+  ChevronUp,
+  Calendar
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 
@@ -36,7 +36,7 @@ function App() {
   const [status, setStatus] = useState({ isReady: false, qrCodeData: null });
   const [contacts, setContacts] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [selectedLog, setSelectedLog] = useState(null);
+  const [expandedLogId, setExpandedLogId] = useState(null);
   const [selectedTestContact, setSelectedTestContact] = useState('');
   const [settings, setSettings] = useState({
     morningPrompt: "",
@@ -58,12 +58,10 @@ function App() {
   };
 
   useEffect(() => {
-    try {
-      const savedApiUrl = localStorage.getItem('whatsapp_api_url');
-      if (savedApiUrl) setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
-      const savedAuth = sessionStorage.getItem('whatsapp_auth');
-      if (savedAuth) setIsLoggedIn(true);
-    } catch (e) { console.error("Load state error", e); }
+    const savedApiUrl = localStorage.getItem('whatsapp_api_url');
+    if (savedApiUrl) setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
+    const savedAuth = sessionStorage.getItem('whatsapp_auth');
+    if (savedAuth) setIsLoggedIn(true);
   }, []);
 
   useEffect(() => {
@@ -87,10 +85,10 @@ function App() {
         sessionStorage.setItem('whatsapp_auth', authString);
         setIsLoggedIn(true);
       } else {
-        alert(res.data?.error || 'Usuário ou senha incorretos.');
+        alert('Credenciais inválidas.');
       }
     } catch (err) {
-      alert('Falha na conexão com o servidor. Verifique a URL da API.');
+      alert('Erro de conexão.');
     } finally {
       setLoading(false);
     }
@@ -99,16 +97,15 @@ function App() {
   const handleLogout = () => {
     sessionStorage.removeItem('whatsapp_auth');
     setIsLoggedIn(false);
-    setSelectedLog(null);
   };
 
   const fetchData = async () => {
     try {
       const config = { headers: getAuthHeader() };
       const [contactsRes, settingsRes, logsRes] = await Promise.all([
-        axios.get(`${API_BASE}/contacts`, config).catch(e => ({ data: [], status: e.response?.status })),
-        axios.get(`${API_BASE}/settings`, config).catch(e => ({ data: null, status: e.response?.status })),
-        axios.get(`${API_BASE}/logs`, config).catch(e => ({ data: [], status: e.response?.status }))
+        axios.get(`${API_BASE}/contacts`, config).catch(e => ({ data: [] })),
+        axios.get(`${API_BASE}/settings`, config).catch(e => ({ data: null })),
+        axios.get(`${API_BASE}/logs`, config).catch(e => ({ data: [] }))
       ]);
 
       if (contactsRes.status === 401 || settingsRes.status === 401 || logsRes.status === 401) {
@@ -119,9 +116,7 @@ function App() {
       setContacts(Array.isArray(contactsRes.data) ? contactsRes.data : []);
       if (settingsRes.data) setSettings(prev => ({ ...prev, ...settingsRes.data }));
       setLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
-    } catch (err) {
-      console.error("Fetch error", err);
-    }
+    } catch (err) {}
   };
 
   const fetchStatus = async () => {
@@ -148,7 +143,7 @@ function App() {
       await axios.post(`${API_BASE}/contacts`, newContact, { headers: getAuthHeader() });
       setNewContact({ name: '', phone: '' });
       fetchData();
-    } catch (err) { alert('Erro ao adicionar'); }
+    } catch (err) { alert('Erro'); }
   };
 
   const removeContact = async (phone) => {
@@ -156,23 +151,27 @@ function App() {
     try {
       await axios.delete(`${API_BASE}/contacts/${phone}`, { headers: getAuthHeader() });
       fetchData();
-    } catch (err) { alert('Erro ao remover'); }
+    } catch (err) { alert('Erro'); }
   };
 
   const saveSettings = async () => {
     try {
       setLoading(true);
       await axios.post(`${API_BASE}/settings`, settings, { headers: getAuthHeader() });
-      alert('Salvo!');
-    } catch (err) { alert('Erro ao salvar'); }
+      alert('Salvo');
+    } catch (err) { alert('Erro'); }
     finally { setLoading(false); }
   };
 
   const triggerTest = async (type, contactPhone = null) => {
     try {
       await axios.post(`${API_BASE}/test-now`, { type, contactPhone }, { headers: getAuthHeader() });
-      alert(`Envio solicitado!`);
-    } catch (err) { alert('Erro ao iniciar'); }
+      alert(`Solicitado!`);
+    } catch (err) { alert('Erro'); }
+  };
+
+  const toggleLog = (id) => {
+    setExpandedLogId(expandedLogId === id ? null : id);
   };
 
   if (!isLoggedIn) {
@@ -182,16 +181,12 @@ function App() {
           <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
             <img src={logoImg} alt="Logo" style={{ width: '80px', height: '80px', borderRadius: '22px', marginBottom: '1.5rem', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }} />
             <h1 style={{ fontSize: '1.8rem' }}>WPP Auto Sender</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Acesso ao Painel</p>
           </div>
           <form onSubmit={handleLogin}>
             <div className="form-group"><label>Usuário</label><input type="text" value={loginForm.username} onChange={(e) => setLoginForm({...loginForm, username: e.target.value})} required /></div>
             <div className="form-group" style={{ marginBottom: '2.25rem' }}><label>Senha</label><input type="password" value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})} required /></div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px' }} disabled={loading}>{loading ? 'Entrando...' : 'Acessar Agora'}</button>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px' }} disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</button>
           </form>
-          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-             <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Versão 5.0 - Hardened Build</p>
-          </div>
         </div>
       </div>
     );
@@ -199,42 +194,6 @@ function App() {
 
   return (
     <div className="app-wrapper">
-      {selectedLog && (
-        <div className="modal-overlay" onClick={() => setSelectedLog(null)}>
-          <div className="glass-card modal-content animate-in" onClick={e => e.stopPropagation()}>
-            <div className="card-header" style={{ marginBottom: '1.5rem' }}>
-              <h2><Info size={20} color="var(--accent-primary)" /> Detalhes do Envio</h2>
-              <button className="close-btn" onClick={() => setSelectedLog(null)}><X size={20} /></button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '1rem' }}>
-                  <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: selectedLog?.type === 'morning' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(14, 165, 233, 0.1)' }}>
-                    {selectedLog?.type === 'morning' ? <Sun size={24} color="var(--warning)" /> : <Moon size={24} color="var(--accent-secondary)" />}
-                  </div>
-                  <div>
-                    <p style={{ fontWeight: 800, fontSize: '1.1rem' }}>{selectedLog?.type === 'morning' ? 'Bom Dia' : 'Boa Noite'}</p>
-                    <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>{selectedLog?.timestamp ? new Date(selectedLog.timestamp).toLocaleString('pt-BR') : '-'}</p>
-                  </div>
-               </div>
-               <div className="detail-frame" style={{ maxHeight: '200px' }}>
-                 <p style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Conteúdo Gerado</p>
-                 {typeof selectedLog?.details === 'string' ? selectedLog.details : selectedLog?.details?.summary || 'Sem detalhes.'}
-               </div>
-               {Array.isArray(selectedLog?.details?.successes) && selectedLog.details.successes.length > 0 && (
-                 <div>
-                   <p style={{ fontWeight: 700, fontSize: '0.75rem', marginBottom: '0.75rem', textTransform: 'uppercase', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                     <CheckCircle2 size={14} /> Enviado para {selectedLog.details.successes.length} contatos:
-                   </p>
-                   <div className="success-tag-grid">
-                     {selectedLog.details.successes.map((s, idx) => <span key={idx} className="success-tag">{s}</span>)}
-                   </div>
-                 </div>
-               )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {isSidebarOpen && <div className="mobile-backdrop" onClick={() => setIsSidebarOpen(false)} />}
       <div className="mobile-toggle mobile-only"><button onClick={() => setIsSidebarOpen(!isSidebarOpen)}>{isSidebarOpen ? <X /> : <Menu />}</button></div>
 
@@ -248,15 +207,15 @@ function App() {
         <div style={{ marginTop: 'auto' }}>
           <div className="status-card">
             <div className={`status-badge ${status?.isReady ? 'online' : 'offline'}`}><div className="indicator" /> {status?.isReady ? 'Conectado' : 'Aguardando'}</div>
-            <button onClick={handleLogout} className="logout-btn"><LogOut size={14} /> Sair do Painel</button>
+            <button onClick={handleLogout} className="logout-btn"><LogOut size={14} /> Sair</button>
           </div>
         </div>
       </aside>
 
       <main>
         <header>
-          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Controle central.</p></div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}><button className="btn btn-outline"><Bell size={18} /></button><button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Forçar Envio</button></div>
+          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Gestão de envios.</p></div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}><button className="btn btn-outline"><Bell size={18} /></button><button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Envio Imediato</button></div>
         </header>
 
         {activeTab === 'dashboard' && (
@@ -272,18 +231,38 @@ function App() {
                     {status?.qrCodeData ? (
                       <div className="qr-frame" style={{ background: 'white', padding: '1rem', borderRadius: '1rem', marginBottom: '1rem' }}><QRCodeSVG value={status.qrCodeData} size={160} level="H" /></div>
                     ) : <RefreshCw className="animate-spin" style={{ opacity: 0.2 }} />}
-                    <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>Aponte a câmera do WhatsApp</p>
+                    <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>Escaneie o QR Code</p>
                   </div>
                 )}
               </section>
 
               <section className="glass-card" style={{ padding: '1.5rem' }}>
-                <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><Clock size={18} /> Histórico</h2><span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Últimos 6</span></div>
+                <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><Clock size={18} /> Histórico Recente</h2></div>
                 <div className="compact-log-list">
-                  {(logs || []).slice(0, 6).map(log => (
-                    <div key={log.id} className="log-item" onClick={() => setSelectedLog(log)}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><div className={`dot ${log.status === 'success' ? 'success' : 'danger'}`} /><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{log.type === 'morning' ? 'Envio Matinal' : 'Envio Noturno'}</span></div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}><span style={{ fontSize: '0.75rem', opacity: 0.4 }}>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}</span><ChevronRight size={14} opacity={0.3} /></div>
+                  {Array.isArray(logs) && logs.slice(0, 8).map(log => (
+                    <div key={log.id} style={{ marginBottom: '0.5rem' }}>
+                      <div className={`log-item ${expandedLogId === log.id ? 'active' : ''}`} onClick={() => toggleLog(log.id)}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div className={`dot ${log.status === 'success' ? 'success' : 'danger'}`} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{log.type === 'morning' ? 'Manhã' : 'Noite'}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.4 }}>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                          {expandedLogId === log.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </div>
+                      </div>
+                      {expandedLogId === log.id && (
+                        <div className="log-expand-area animate-in">
+                           <div className="detail-frame" style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
+                             {typeof log.details === 'string' ? log.details : log.details?.summary || 'Sem detalhes.'}
+                           </div>
+                           {Array.isArray(log.details?.successes) && log.details.successes.length > 0 && (
+                             <div className="success-tag-grid">
+                               {log.details.successes.map((s, idx) => <span key={idx} className="success-tag">{s}</span>)}
+                             </div>
+                           )}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {(!logs || logs.length === 0) && <p style={{ textAlign: 'center', opacity: 0.4, padding: '2rem' }}>Nenhum registro.</p>}
@@ -293,28 +272,28 @@ function App() {
 
             <div className="col-4">
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header"><h2><PlayCircle size={18} /> Envio Imediato</h2></div>
-                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <div className="card-header"><h2><PlayCircle size={18} /> Envio Agora</h2></div>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
-                    <option value="">Todos os Contatos</option>
+                    <option value="">Todos</option>
                     {Array.isArray(contacts) && contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
                   </select>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ background: 'linear-gradient(135deg, var(--warning), #d97706)', color: 'white' }}><Sun size={14} /> Manhã</button>
-                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ background: 'linear-gradient(135deg, var(--accent-secondary), #0284c7)', color: 'white' }}><Moon size={14} /> Noite</button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)}><Sun size={14} /> Manhã</button>
+                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ background: 'var(--accent-secondary)' }}><Moon size={14} /> Noite</button>
                 </div>
               </section>
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header"><h2><Calendar size={18} /> Agenda</h2></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="schedule-box"><Sun size={14} color="var(--warning)" /> <span>{settings?.morningTime || '--:--'}</span></div>
-                  <div className="schedule-box"><Moon size={14} color="var(--accent-secondary)" /> <span>{settings?.nightTime || '--:--'}</span></div>
+                  <div className="schedule-box"><span>{settings?.morningTime || '--:--'}</span></div>
+                  <div className="schedule-box"><span>{settings?.nightTime || '--:--'}</span></div>
                 </div>
               </section>
               <section className="glass-card compact-card">
-                <div className="card-header"><h2><Users size={18} /> Base</h2></div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}><h2 style={{ fontSize: '2.5rem', fontWeight: 800 }}>{contacts?.length || 0}</h2><div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.2 }}>Ativos</div></div>
+                <div className="card-header"><h2><Users size={18} /> Total</h2></div>
+                <div style={{ fontSize: '2rem', fontWeight: 800 }}>{contacts?.length || 0}</div>
               </section>
             </div>
           </div>
@@ -323,19 +302,19 @@ function App() {
         {activeTab === 'contacts' && (
           <div className="animate-in">
             <section className="glass-card" style={{ marginBottom: '2rem' }}>
-              <div className="card-header"><h2><Plus size={18} /> Novo</h2></div>
+              <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>
               <form onSubmit={addContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
                 <div><label>Nome</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required /></div>
-                <div><label>WhatsApp</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required placeholder="55..." /></div>
-                <button type="submit" className="btn btn-primary" style={{ height: '48px' }}>Salvar</button>
+                <div><label>WhatsApp</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required /></div>
+                <button type="submit" className="btn btn-primary">Salvar</button>
               </form>
             </section>
             <section className="glass-card">
               <div className="card-header"><h2><Users size={18} /> Lista ({contacts?.length || 0})</h2></div>
-              <div className="contact-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              <div className="contact-list">
                 {Array.isArray(contacts) && contacts.map(c => (
-                  <div key={c.phone} className="contact-row" style={{ padding: '0.85rem 1rem' }}>
-                    <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.name}</p><p style={{ fontSize: '0.75rem', opacity: 0.5 }}>{c.phone}</p></div>
+                  <div key={c.phone} className="contact-row">
+                    <div><p style={{ fontWeight: 700 }}>{c.name}</p><p style={{ fontSize: '0.8rem', opacity: 0.5 }}>{c.phone}</p></div>
                     <button onClick={() => removeContact(c.phone)} className="delete-btn"><Trash2 size={16} /></button>
                   </div>
                 ))}
@@ -348,14 +327,14 @@ function App() {
           <div className="content-grid animate-in">
             <div className="col-8">
               <section className="glass-card">
-                <div className="card-header"><h2><Settings size={18} /> Ajustes AI</h2></div>
-                <div className="form-group"><label>Manhã</label><textarea rows="3" value={settings?.morningPrompt || ''} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
-                <div className="form-group" style={{ marginTop: '1rem' }}><label>Noite</label><textarea rows="3" value={settings?.nightPrompt || ''} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', marginBottom: '2rem' }}>
-                  <div><label>Hora (Manhã)</label><input type="time" value={settings?.morningTime || ''} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
-                  <div><label>Hora (Noite)</label><input type="time" value={settings?.nightTime || ''} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
+                <div className="card-header"><h2><Settings size={18} /> Configurações</h2></div>
+                <div className="form-group"><label>Prompt Manhã</label><textarea rows="3" value={settings?.morningPrompt || ''} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
+                <div className="form-group"><label>Prompt Noite</label><textarea rows="3" value={settings?.nightPrompt || ''} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                  <div><label>Hora Manhã</label><input type="time" value={settings?.morningTime || ''} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
+                  <div><label>Hora Noite</label><input type="time" value={settings?.nightTime || ''} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
                 </div>
-                <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%', height: '50px' }}>Salvar</button>
+                <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%', marginTop: '2rem' }}>Salvar Tudo</button>
               </section>
             </div>
             <div className="col-4">

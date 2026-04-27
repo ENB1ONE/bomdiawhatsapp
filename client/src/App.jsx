@@ -234,7 +234,7 @@ function App() {
     <div className="app-wrapper">
       {/* Mobile Header Toggle */}
       <div style={{ 
-        position: 'fixed', top: '1.5rem', left: '1.5rem', z-index: 200, display: 'none'
+        position: 'fixed', top: '1.5rem', left: '1.5rem', zIndex: 200, display: 'none'
       }} className="mobile-only">
         <button className="btn btn-outline" onClick={() => setIsSidebarOpen(!isSidebarOpen)} style={{ padding: '0.75rem' }}>
           {isSidebarOpen ? <X /> : <Menu />}

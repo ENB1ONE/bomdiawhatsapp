@@ -1,4 +1,4 @@
-// WPP Auto Sender - Interface Ultra-Compact Taste Skill
+// WPP Auto Sender - Interface Liquid Glass v3
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -22,8 +22,8 @@ import {
   Menu,
   X,
   LogOut,
-  ChevronRight,
-  Info
+  Info,
+  Calendar
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 
@@ -102,9 +102,9 @@ function App() {
         axios.get(`${API_BASE}/settings`, config),
         axios.get(`${API_BASE}/logs`, config)
       ]);
-      setContacts(contactsRes.data);
+      setContacts(contactsRes.data || []);
       setSettings(prev => ({ ...prev, ...settingsRes.data }));
-      setLogs(logsRes.data);
+      setLogs(logsRes.data || []);
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
     }
@@ -122,7 +122,7 @@ function App() {
   const fetchLogs = async () => {
     try {
       const res = await axios.get(`${API_BASE}/logs`, { headers: getAuthHeader() });
-      setLogs(res.data);
+      setLogs(res.data || []);
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
     }
@@ -176,13 +176,13 @@ function App() {
         <div className="glass-card animate-in" style={{ width: '100%', maxWidth: '440px', padding: '3rem' }}>
           <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
             <img src={logoImg} alt="Logo" style={{ width: '80px', height: '80px', borderRadius: '22px', marginBottom: '1.5rem', boxShadow: '0 12px 30px rgba(0,0,0,0.4)' }} />
-            <h1>WPP Auto Sender</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Acesso Restrito</p>
+            <h1 style={{ fontSize: '1.8rem' }}>WPP Auto Sender</h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Acesso ao Painel</p>
           </div>
           <form onSubmit={handleLogin}>
             <div className="form-group"><label>Usuário</label><input type="text" value={loginForm.username} onChange={(e) => setLoginForm({...loginForm, username: e.target.value})} required /></div>
-            <div className="form-group" style={{ marginBottom: '2rem' }}><label>Senha</label><input type="password" value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})} required /></div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px' }} disabled={loading}>{loading ? 'Autenticando...' : 'Entrar'}</button>
+            <div className="form-group" style={{ marginBottom: '2.25rem' }}><label>Senha</label><input type="password" value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})} required /></div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '54px' }} disabled={loading}>{loading ? 'Entrando...' : 'Acessar Agora'}</button>
           </form>
         </div>
       </div>
@@ -191,7 +191,49 @@ function App() {
 
   return (
     <div className="app-wrapper">
+      {/* Liquid Glass Log Modal */}
+      {selectedLog && (
+        <div className="modal-overlay" onClick={() => setSelectedLog(null)}>
+          <div className="glass-card modal-content animate-in" onClick={e => e.stopPropagation()}>
+            <div className="card-header" style={{ marginBottom: '1.5rem' }}>
+              <h2><Info size={20} color="var(--accent-primary)" /> Detalhes do Envio</h2>
+              <button className="close-btn" onClick={() => setSelectedLog(null)}><X size={20} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '1rem' }}>
+                  <div style={{ padding: '0.75rem', borderRadius: '0.75rem', background: selectedLog.type === 'morning' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(14, 165, 233, 0.1)' }}>
+                    {selectedLog.type === 'morning' ? <Sun size={24} color="var(--warning)" /> : <Moon size={24} color="var(--accent-secondary)" />}
+                  </div>
+                  <div>
+                    <p style={{ fontWeight: 800, fontSize: '1.1rem' }}>{selectedLog.type === 'morning' ? 'Bom Dia' : 'Boa Noite'}</p>
+                    <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>{new Date(selectedLog.timestamp).toLocaleString('pt-BR')}</p>
+                  </div>
+               </div>
+
+               <div className="detail-frame" style={{ maxHeight: '200px' }}>
+                 <p style={{ fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase' }}>Conteúdo Gerado</p>
+                 {typeof selectedLog.details === 'string' ? selectedLog.details : selectedLog.details?.summary}
+               </div>
+
+               {selectedLog.details?.successes?.length > 0 && (
+                 <div>
+                   <p style={{ fontWeight: 700, fontSize: '0.75rem', marginBottom: '0.75rem', textTransform: 'uppercase', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                     <CheckCircle2 size={14} /> Enviado para {selectedLog.details.successes.length} contatos:
+                   </p>
+                   <div className="success-tag-grid">
+                     {selectedLog.details.successes.map((s, idx) => (
+                       <span key={idx} className="success-tag">{s}</span>
+                     ))}
+                   </div>
+                 </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isSidebarOpen && <div className="mobile-backdrop" onClick={() => setIsSidebarOpen(false)} />}
+      
       <div className="mobile-toggle mobile-only">
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)}>{isSidebarOpen ? <X /> : <Menu />}</button>
       </div>
@@ -205,30 +247,29 @@ function App() {
         </nav>
         <div style={{ marginTop: 'auto' }}>
           <div className="status-card">
-            <div className={`status-badge ${status.isReady ? 'online' : 'offline'}`}><div className="indicator" /> {status.isReady ? 'Online' : 'Aguardando'}</div>
-            <button onClick={handleLogout} className="logout-btn"><LogOut size={14} /> Sair</button>
+            <div className={`status-badge ${status.isReady ? 'online' : 'offline'}`}><div className="indicator" /> {status.isReady ? 'Conectado' : 'Aguardando'}</div>
+            <button onClick={handleLogout} className="logout-btn"><LogOut size={14} /> Sair do Painel</button>
           </div>
         </div>
       </aside>
 
       <main>
         <header>
-          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Gestão de envios diários.</p></div>
+          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Controle central de envios.</p></div>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
-             <button className="btn btn-outline"><Bell size={18} /></button>
-             <button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Envio Manhã</button>
+             <button className="btn btn-outline" title="Notificações"><Bell size={18} /></button>
+             <button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Forçar Envio</button>
           </div>
         </header>
 
         {activeTab === 'dashboard' && (
           <div className="content-grid animate-in">
-            {/* Esquerda: Status + Logs (Frame Compacto) */}
             <div className="col-8">
-              {/* Status Compacto */}
+              {/* Status Section */}
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header" style={{ marginBottom: status.isReady && !status.qrCodeData ? '0' : '1.5rem' }}>
                   <h2><Smartphone size={18} /> Instância</h2>
-                  {status.isReady && <div className="status-badge online" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}><div className="indicator" /> Conectado</div>}
+                  {status.isReady && <div className="status-badge online" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }}><div className="indicator" /> Online</div>}
                 </div>
                 {!status.isReady && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem' }}>
@@ -237,78 +278,52 @@ function App() {
                         <QRCodeSVG value={status.qrCodeData} size={160} level="H" />
                       </div>
                     ) : <RefreshCw className="animate-spin" style={{ opacity: 0.2 }} />}
-                    <p style={{ fontSize: '0.8rem', opacity: 0.6, textAlign: 'center' }}>Escaneie para conectar</p>
+                    <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>Aponte a câmera do WhatsApp</p>
                   </div>
                 )}
               </section>
 
-              {/* Histórico com Frame Lateral de Detalhes */}
-              <div style={{ display: 'grid', gridTemplateColumns: selectedLog ? '1fr 1.2fr' : '1fr', gap: '1.5rem', transition: '0.4s ease' }}>
-                <section className="glass-card" style={{ padding: '1.5rem' }}>
-                  <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><LayoutDashboard size={18} /> Histórico</h2></div>
-                  <div className="compact-log-list">
-                    {logs.slice(0, 6).map(log => (
-                      <div 
-                        key={log.id} 
-                        className={`log-item ${selectedLog?.id === log.id ? 'selected' : ''}`}
-                        onClick={() => setSelectedLog(log)}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          {log.status === 'success' ? <CheckCircle2 size={14} color="var(--success)" /> : <XCircle size={14} color="var(--danger)" />}
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{log.type === 'morning' ? 'Manhã' : 'Noite'}</span>
-                        </div>
-                        <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>{new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+              {/* Logs Section */}
+              <section className="glass-card" style={{ padding: '1.5rem' }}>
+                <div className="card-header" style={{ marginBottom: '1.5rem' }}>
+                   <h2><Clock size={18} /> Histórico Recente</h2>
+                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Últimos 6 registros</span>
+                </div>
+                <div className="compact-log-list">
+                  {logs.slice(0, 6).map(log => (
+                    <div key={log.id} className="log-item" onClick={() => setSelectedLog(log)}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div className={`dot ${log.status === 'success' ? 'success' : 'danger'}`} />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{log.type === 'morning' ? 'Envio Matinal' : 'Envio Noturno'}</span>
                       </div>
-                    ))}
-                  </div>
-                </section>
-
-                {selectedLog && (
-                  <section className="glass-card animate-in" style={{ padding: '1.5rem', border: '1px solid var(--accent-primary)' }}>
-                    <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                      <h2><Info size={18} /> Detalhes</h2>
-                      <X size={18} style={{ cursor: 'pointer' }} onClick={() => setSelectedLog(null)} />
-                    </div>
-                    <div style={{ fontSize: '0.85rem' }}>
-                      <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>{new Date(selectedLog.timestamp).toLocaleString('pt-BR')}</p>
-                      <div className="detail-frame">
-                        {typeof selectedLog.details === 'string' ? selectedLog.details : selectedLog.details?.summary}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.4 }}>{new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <ChevronRight size={14} opacity={0.3} />
                       </div>
-                      {selectedLog.details?.successes?.length > 0 && (
-                        <div style={{ marginTop: '1rem' }}>
-                          <p style={{ fontWeight: 700, fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', color: 'var(--success)' }}>Enviado para:</p>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                            {selectedLog.details.successes.slice(0, 10).map((s, idx) => (
-                              <span key={idx} style={{ padding: '0.2rem 0.5rem', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '0.4rem', fontSize: '0.65rem' }}>{s}</span>
-                            ))}
-                            {selectedLog.details.successes.length > 10 && <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>+{selectedLog.details.successes.length - 10} mais</span>}
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </section>
-                )}
-              </div>
+                  ))}
+                  {logs.length === 0 && <p style={{ textAlign: 'center', opacity: 0.4, padding: '2rem' }}>Nenhum log encontrado.</p>}
+                </div>
+              </section>
             </div>
 
-            {/* Direita: Controles e Audiência */}
             <div className="col-4">
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header"><h2><PlayCircle size={18} /> Envio Agora</h2></div>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)} style={{ padding: '0.7rem', fontSize: '0.85rem' }}>
-                    <option value="">Todos Contatos</option>
+                <div className="card-header"><h2><PlayCircle size={18} /> Envio Imediato</h2></div>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
+                    <option value="">Todos os Contatos</option>
                     {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
                   </select>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ padding: '0.6rem', fontSize: '0.8rem' }}><Sun size={14} /> Manhã</button>
-                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ padding: '0.6rem', fontSize: '0.8rem', background: 'var(--accent-secondary)' }}><Moon size={14} /> Noite</button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)} style={{ background: 'linear-gradient(135deg, var(--warning), #d97706)', color: 'white' }}><Sun size={14} /> Manhã</button>
+                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ background: 'linear-gradient(135deg, var(--accent-secondary), #0284c7)', color: 'white' }}><Moon size={14} /> Noite</button>
                 </div>
               </section>
 
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header"><h2><Clock size={18} /> Agenda</h2></div>
+                <div className="card-header"><h2><Calendar size={18} /> Próximos Horários</h2></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div className="schedule-box"><Sun size={14} color="var(--warning)" /> <span>{settings.morningTime}</span></div>
                   <div className="schedule-box"><Moon size={14} color="var(--accent-secondary)" /> <span>{settings.nightTime}</span></div>
@@ -316,10 +331,10 @@ function App() {
               </section>
 
               <section className="glass-card compact-card">
-                <div className="card-header"><h2><Users size={18} /> Audiência</h2></div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                  <h2 style={{ fontSize: '2rem' }}>{contacts.length}</h2>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>cadastrados</span>
+                <div className="card-header"><h2><Users size={18} /> Base de Dados</h2></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <h2 style={{ fontSize: '2.5rem', fontWeight: 800 }}>{contacts.length}</h2>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.2 }}>Destinatários<br/>Ativos</div>
                 </div>
               </section>
             </div>
@@ -329,20 +344,20 @@ function App() {
         {activeTab === 'contacts' && (
           <div className="animate-in">
             <section className="glass-card" style={{ marginBottom: '2rem' }}>
-              <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>
+              <div className="card-header"><h2><Plus size={18} /> Adicionar Novo</h2></div>
               <form onSubmit={addContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
-                <div><label>Nome</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required /></div>
-                <div><label>WhatsApp</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required /></div>
-                <button type="submit" className="btn btn-primary" style={{ height: '48px' }}>Adicionar</button>
+                <div><label>Nome Completo</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required /></div>
+                <div><label>Número (DDI + DDD + Telefone)</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required placeholder="55..." /></div>
+                <button type="submit" className="btn btn-primary" style={{ height: '48px' }}>Cadastrar</button>
               </form>
             </section>
             <section className="glass-card">
-              <div className="card-header"><h2><Users size={18} /> Lista Atual ({contacts.length})</h2></div>
-              <div className="contact-list">
+              <div className="card-header"><h2><Users size={18} /> Contatos ({contacts.length})</h2></div>
+              <div className="contact-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                 {contacts.map(c => (
-                  <div key={c.phone} className="contact-row" style={{ padding: '1rem' }}>
+                  <div key={c.phone} className="contact-row" style={{ padding: '0.85rem 1rem' }}>
                     <div><p style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.name}</p><p style={{ fontSize: '0.75rem', opacity: 0.5 }}>{c.phone}</p></div>
-                    <button onClick={() => removeContact(c.phone)} className="delete-btn"><Trash2 size={16} /></button>
+                    <button onClick={() => removeContact(c.phone)} className="delete-btn" title="Excluir"><Trash2 size={16} /></button>
                   </div>
                 ))}
               </div>
@@ -354,18 +369,18 @@ function App() {
           <div className="content-grid animate-in">
             <div className="col-8">
               <section className="glass-card">
-                <div className="card-header"><h2><Settings size={18} /> IA Prompts</h2></div>
-                <div className="form-group"><label>Manhã</label><textarea rows="3" value={settings.morningPrompt} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
-                <div className="form-group"><label>Noite</label><textarea rows="3" value={settings.nightPrompt} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                  <div><label>Hora Manhã</label><input type="time" value={settings.morningTime} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
-                  <div><label>Hora Noite</label><input type="time" value={settings.nightTime} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
+                <div className="card-header"><h2><Settings size={18} /> Prompts Gemini AI</h2></div>
+                <div className="form-group"><label>Prompt Matinal</label><textarea rows="3" value={settings.morningPrompt} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
+                <div className="form-group" style={{ marginTop: '1rem' }}><label>Prompt Noturno</label><textarea rows="3" value={settings.nightPrompt} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', marginBottom: '2rem' }}>
+                  <div><label>Horário (Manhã)</label><input type="time" value={settings.morningTime} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
+                  <div><label>Horário (Noite)</label><input type="time" value={settings.nightTime} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
                 </div>
-                <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%' }}>Salvar</button>
+                <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%', height: '50px' }}>Salvar Configurações</button>
               </section>
             </div>
             <div className="col-4">
-              <section className="glass-card"><div className="card-header"><h2><Globe size={18} /> API</h2></div><input value={settings.apiUrl} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} /></section>
+              <section className="glass-card"><div className="card-header"><h2><Globe size={18} /> Servidor</h2></div><input value={settings.apiUrl} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} /></section>
             </div>
           </div>
         )}

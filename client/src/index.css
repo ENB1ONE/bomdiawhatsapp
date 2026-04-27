@@ -52,7 +52,7 @@ aside {
 .nav-item.active { background: rgba(16, 185, 129, 0.1); color: var(--accent-primary); border: 1px solid rgba(16, 185, 129, 0.1); }
 
 .status-card { padding: 1rem; border-radius: 1rem; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--card-border); }
-.status-badge { padding: 0.4rem 1rem; border-radius: 2rem; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; }
+.status-badge { padding: 0.4rem 1rem; border-radius: 2rem; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
 .status-badge.online { background: rgba(16, 185, 129, 0.1); color: var(--accent-primary); }
 .status-badge.offline { background: rgba(244, 63, 94, 0.1); color: var(--danger); }
 .indicator { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 8px currentColor; background: currentColor; }
@@ -75,17 +75,33 @@ h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.04em; }
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
 .card-header h2 { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; color: var(--text-secondary); }
 
-/* Compact Elements */
+/* Modal Liquid Glass */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(20px); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 2rem;
+}
+.modal-content {
+  width: 100%; max-width: 600px; border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
+}
+.close-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: white; padding: 0.4rem; border-radius: 0.75rem; cursor: pointer; transition: 0.3s; }
+.close-btn:hover { background: rgba(255,0,0,0.2); border-color: var(--danger); }
+
+/* Compact Log Elements */
 .compact-log-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .log-item {
-  display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-radius: 0.75rem; background: rgba(255, 255, 255, 0.02); cursor: pointer; transition: 0.2s; border: 1px solid transparent;
+  display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1.25rem; border-radius: 0.85rem; background: rgba(255, 255, 255, 0.02); cursor: pointer; transition: 0.2s; border: 1px solid transparent;
 }
-.log-item:hover { background: rgba(255, 255, 255, 0.05); transform: translateX(2px); }
-.log-item.selected { border-color: var(--accent-primary); background: rgba(16, 185, 129, 0.05); }
+.log-item:hover { background: rgba(255, 255, 255, 0.06); transform: translateY(-2px); border-color: rgba(255,255,255,0.1); }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.success { background: var(--success); box-shadow: 0 0 10px var(--success); }
+.dot.danger { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
 
 .detail-frame {
-  background: rgba(0, 0, 0, 0.2); padding: 1rem; border-radius: 0.75rem; font-size: 0.8rem; line-height: 1.5; max-height: 150px; overflow-y: auto; border: 1px solid var(--card-border);
+  background: rgba(0, 0, 0, 0.3); padding: 1.25rem; border-radius: 1rem; font-size: 0.9rem; line-height: 1.6; border: 1px solid var(--card-border); overflow-y: auto;
 }
+
+.success-tag-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.success-tag { padding: 0.3rem 0.75rem; background: rgba(16, 185, 129, 0.1); color: var(--accent-primary); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 0.6rem; font-size: 0.75rem; font-weight: 600; }
 
 .schedule-box {
   display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 0.75rem; background: rgba(255, 255, 255, 0.03); font-weight: 700; font-size: 0.9rem;
@@ -106,14 +122,14 @@ input, select, textarea {
 .delete-btn:hover { opacity: 1; transform: scale(1.1); }
 
 /* Animations */
-@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-.animate-in { animation: slideUp 0.4s ease forwards; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); filter: blur(10px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+.animate-in { animation: slideUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .animate-spin { animation: spin 1s linear infinite; }
 
 /* Mobile */
 .mobile-only { display: none; }
-.mobile-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 95; }
+.mobile-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 95; }
 .mobile-toggle { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 200; }
 .mobile-toggle button { background: var(--card-bg); border: 1px solid var(--card-border); color: white; padding: 0.5rem; border-radius: 0.75rem; backdrop-filter: blur(10px); }
 

@@ -41,40 +41,58 @@ async function generateImage(prompt, type = "morning") {
         // Since the user asked for "Gemini 3 Flash Image", I will assume they want 
         // the latest multimodal capability.
         
-        // Pedimos para a IA gerar o texto da mensagem E o prompt da imagem em formato JSON
         let aiResponse = { message: type === 'morning' ? "Bom dia! ☀️" : "Boa noite! 🌙", image_prompt: prompt };
         
-        try {
-            console.log("Solicitando texto para a IA (gemini-2.5-flash v1beta)...");
-            const textUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-            
-            const textResponse = await axios.post(textUrl, {
-                contents: [{
-                    parts: [{
-                        text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa e ÚNICA para WhatsApp. 
-                        REGRAS:
-                        1. A mensagem de texto deve ter NO MÁXIMO 300 caracteres, ser calorosa e variar temas (esperança, fé, gratidão, saúde). Pode usar emojis na mensagem.
-                        2. Gere também um prompt detalhado em INGLÊS para geração de imagem. 
-                        3. CRÍTICO PARA A IMAGEM: O prompt da imagem NÃO DEVE conter emojis (isso estraga a geração). O prompt da imagem DEVE focar em ser realista e puramente visual (sem letras, frases ou textos). Adicione no final do prompt da imagem: "photorealistic, cinematic lighting, no text, no letters, no watermark, no writing, no emojis".
-                        
-                        Responda APENAS com um JSON no formato:
-                        {
-                          "message": "texto da mensagem aqui com emojis",
-                          "image_prompt": "detailed image description in english focusing ONLY on visuals, no text"
-                        }`
+        let retries = 5;
+        let success = false;
+        
+        while (retries > 0 && !success) {
+            try {
+                console.log(`Solicitando texto para a IA (gemini-2.5-flash)... Tentativas restantes: ${retries}`);
+                const textUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+                
+                const textResponse = await axios.post(textUrl, {
+                    contents: [{
+                        parts: [{
+                            text: `Baseado no contexto: "${prompt}", gere uma mensagem carinhosa e ÚNICA para WhatsApp. 
+                            REGRAS:
+                            1. A mensagem de texto deve ter NO MÁXIMO 300 caracteres, ser calorosa e variar temas (esperança, fé, gratidão, saúde). Pode usar emojis na mensagem.
+                            2. Gere também um prompt detalhado em INGLÊS para geração de imagem. 
+                            3. CRÍTICO PARA A IMAGEM: O prompt da imagem NÃO DEVE conter emojis (isso estraga a geração). O prompt da imagem DEVE focar em ser realista e puramente visual (sem letras, frases ou textos). Adicione no final do prompt da imagem: "photorealistic, cinematic lighting, no text, no letters, no watermark, no writing, no emojis".
+                            
+                            Responda APENAS com um JSON no formato:
+                            {
+                              "message": "texto da mensagem aqui com emojis",
+                              "image_prompt": "detailed image description in english focusing ONLY on visuals, no text"
+                            }`
+                        }]
                     }]
-                }]
-            }, { timeout: 60000 });
+                }, { timeout: 60000 });
 
-            if (textResponse.data && textResponse.data.candidates && textResponse.data.candidates[0].content) {
-                const rawText = textResponse.data.candidates[0].content.parts[0].text;
-                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    aiResponse = JSON.parse(jsonMatch[0]);
+                if (textResponse.data && textResponse.data.candidates && textResponse.data.candidates[0].content) {
+                    const rawText = textResponse.data.candidates[0].content.parts[0].text;
+                    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        aiResponse = JSON.parse(jsonMatch[0]);
+                        success = true; // We got a valid JSON response
+                        console.log("IA respondeu com sucesso!");
+                    } else {
+                        throw new Error("Resposta da IA não continha um JSON válido.");
+                    }
+                }
+            } catch (e) {
+                console.error("Erro ao processar texto da IA (REST):", e.response?.data || e.message);
+                retries--;
+                if (retries > 0) {
+                    const delay = (6 - retries) * 10000; // 10s, 20s, 30s, 40s
+                    console.log(`Aguardando ${delay / 1000} segundos antes de tentar novamente...`);
+                    await new Promise(r => setTimeout(r, delay));
                 }
             }
-        } catch (e) {
-            console.error("Erro ao processar texto da IA (REST):", e.response?.data || e.message);
+        }
+
+        if (!success) {
+            console.error("Todas as tentativas da IA falharam. Usando texto padrão.");
         }
 
         console.log("AI Message:", aiResponse.message);

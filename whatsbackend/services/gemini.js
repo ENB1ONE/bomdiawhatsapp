@@ -43,12 +43,12 @@ async function generateImage(prompt, type = "morning") {
         
         let aiResponse = { message: type === 'morning' ? "Bom dia! ☀️" : "Boa noite! 🌙", image_prompt: prompt };
         
-        let retries = 5;
         let success = false;
+        let attempt = 1;
         
-        while (retries > 0 && !success) {
+        while (!success) {
             try {
-                console.log(`Solicitando texto para a IA (gemini-2.5-flash)... Tentativas restantes: ${retries}`);
+                console.log(`Solicitando texto para a IA (gemini-2.5-flash)... Tentativa: ${attempt}`);
                 const textUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
                 
                 const textResponse = await axios.post(textUrl, {
@@ -81,18 +81,15 @@ async function generateImage(prompt, type = "morning") {
                     }
                 }
             } catch (e) {
-                console.error("Erro ao processar texto da IA (REST):", e.response?.data || e.message);
-                retries--;
-                if (retries > 0) {
-                    const delay = (6 - retries) * 10000; // 10s, 20s, 30s, 40s
-                    console.log(`Aguardando ${delay / 1000} segundos antes de tentar novamente...`);
-                    await new Promise(r => setTimeout(r, delay));
-                }
+                console.error(`Erro ao processar texto da IA na tentativa ${attempt} (REST):`, e.response?.data || e.message);
+                
+                // Exponential backoff capped at 60 seconds (1 minuto)
+                const delay = Math.min(attempt * 15000, 60000); 
+                console.log(`Alta demanda ou instabilidade. Aguardando ${delay / 1000} segundos para insistir... (A mensagem será atrasada, mas não enviada com erro)`);
+                await new Promise(r => setTimeout(r, delay));
+                
+                attempt++;
             }
-        }
-
-        if (!success) {
-            console.error("Todas as tentativas da IA falharam. Usando texto padrão.");
         }
 
         console.log("AI Message:", aiResponse.message);

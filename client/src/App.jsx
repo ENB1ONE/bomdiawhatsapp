@@ -227,8 +227,16 @@ function App() {
 
       <main>
         <header>
-          <div><h1>Dashboard</h1><p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Gestão de envios.</p></div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}><button className="btn btn-outline"><Bell size={18} /></button><button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Envio Imediato</button></div>
+          <div>
+            <h1>{activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'contacts' ? 'Contatos' : 'Ajustes'}</h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              {activeTab === 'dashboard' ? 'Gestão de envios.' : activeTab === 'contacts' ? 'Gerencie seus contatos.' : 'Configurações do sistema.'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="btn btn-outline"><Bell size={18} /></button>
+            <button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Envio Imediato</button>
+          </div>
         </header>
 
         {activeTab === 'dashboard' && (
@@ -358,6 +366,14 @@ function App() {
             </div>
             <div className="col-4">
               <section className="glass-card"><div className="card-header"><h2><Globe size={18} /> Servidor</h2></div><input value={settings?.apiUrl || ''} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} /></section>
+              
+              <section className="glass-card" style={{ marginTop: '1.5rem' }}>
+                <div className="card-header"><h2><Trash2 size={18} /> Manutenção</h2></div>
+                <p style={{ fontSize: '0.8rem', opacity: 0.6, marginBottom: '1rem' }}>Limpa o cache de imagens e mensagens geradas pela IA.</p>
+                <button className="btn btn-outline" onClick={clearCache} style={{ width: '100%', borderColor: 'rgba(255,100,100,0.3)', color: '#ff6b6b' }} disabled={loading}>
+                  {loading ? 'Limpando...' : 'Limpar Cache'}
+                </button>
+              </section>
             </div>
           </div>
         )}

@@ -28,14 +28,15 @@ function initWhatsApp(onQR) {
         authStrategy: new LocalAuth({
             dataPath: './.wwebjs_auth'
         }),
-        authTimeoutMs: 60000, 
+        authTimeoutMs: 120000, 
         webVersionCache: {
             type: 'remote',
             remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
         },
         puppeteer: {
-            headless: 'new', // Modo moderno pode ser mais estável em versões recentes do Chromium
+            headless: 'new',
             executablePath: '/usr/bin/chromium',
+            protocolTimeout: 0, // Desabilita o timeout do protocolo para evitar o erro Runtime.callFunctionOn timed out
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -46,7 +47,8 @@ function initWhatsApp(onQR) {
                 '--disable-gpu',
                 '--disable-extensions',
                 '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-site-isolation-trials'
+                '--disable-site-isolation-trials',
+                '--single-process' // Útil em containers para economizar recursos
             ]
         }
     });

@@ -170,6 +170,19 @@ function App() {
     } catch (err) { alert('Erro'); }
   };
 
+  const clearCache = async () => {
+    if (!confirm('Deseja realmente limpar o cache de imagens e textos?')) return;
+    try {
+      setLoading(true);
+      const res = await axios.post(`${API_BASE}/clear-cache`, {}, { headers: getAuthHeader() });
+      alert(res.data?.message || 'Cache limpo!');
+    } catch (err) {
+      alert('Erro ao limpar cache.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleLog = (id) => {
     setExpandedLogId(expandedLogId === id ? null : id);
   };
@@ -291,9 +304,15 @@ function App() {
                   <div className="schedule-box"><span>{settings?.nightTime || '--:--'}</span></div>
                 </div>
               </section>
-              <section className="glass-card compact-card">
-                <div className="card-header"><h2><Users size={18} /> Total</h2></div>
                 <div style={{ fontSize: '2rem', fontWeight: 800 }}>{contacts?.length || 0}</div>
+              </section>
+
+              <section className="glass-card compact-card" style={{ marginTop: '1.5rem' }}>
+                <div className="card-header"><h2><Trash2 size={18} /> Manutenção</h2></div>
+                <p style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '1rem' }}>Limpar cache de imagens e mensagens.</p>
+                <button className="btn btn-outline" onClick={clearCache} style={{ width: '100%', borderColor: 'rgba(255,100,100,0.2)', color: '#ff6b6b', padding: '0.5rem' }} disabled={loading}>
+                  {loading ? 'Limpando...' : 'Limpar Cache'}
+                </button>
               </section>
             </div>
           </div>

@@ -11,6 +11,8 @@ services:
       - TZ=America/Sao_Paulo
     volumes:
       - ./.wwebjs_auth:/app/.wwebjs_auth
+      - ./database.json:/app/database.json
+      - ./cache:/app/cache
     networks:
       - npm_network
 

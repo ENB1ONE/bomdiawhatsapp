@@ -312,6 +312,8 @@ function App() {
                   <div className="schedule-box"><span>{settings?.nightTime || '--:--'}</span></div>
                 </div>
               </section>
+              <section className="glass-card compact-card">
+                <div className="card-header"><h2><Users size={18} /> Total</h2></div>
                 <div style={{ fontSize: '2rem', fontWeight: 800 }}>{contacts?.length || 0}</div>
               </section>
 

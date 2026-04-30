@@ -206,9 +206,11 @@ async function runAutomation(type, targetPhone = null) {
                 await sendMessage(cleanPhone, finalGreeting, finalImage);
                 successes.push({ name: contact.name, phone: cleanPhone });
                 
-                // Delay aleatório maior para evitar sobrecarga no navegador (10 a 25 segundos)
-                const delay = Math.floor(Math.random() * (25000 - 10000 + 1) + 10000);
-                await new Promise(r => setTimeout(r, delay));
+                if (contactsToSend.length > 1) {
+                    // Delay aleatório maior para evitar sobrecarga no navegador (10 a 25 segundos)
+                    const delay = Math.floor(Math.random() * (25000 - 10000 + 1) + 10000);
+                    await new Promise(r => setTimeout(r, delay));
+                }
             } catch (err) {
                 console.error(`Failed to send to ${contact.phone}:`, err.message || err.toString());
                 failures.push({ name: contact.name, phone: contact.phone, error: err.message || err.toString() });

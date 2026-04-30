@@ -47,8 +47,7 @@ function initWhatsApp(onQR) {
                 '--disable-gpu',
                 '--disable-extensions',
                 '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-site-isolation-trials',
-                '--single-process' // Útil em containers para economizar recursos
+                '--disable-site-isolation-trials'
             ]
         }
     });

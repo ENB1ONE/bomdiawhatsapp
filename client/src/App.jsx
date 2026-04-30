@@ -70,7 +70,7 @@ function App() {
       const interval = setInterval(() => {
         fetchStatus();
         fetchLogs();
-      }, 5000);
+      }, 2000); // Reduzido de 5s para 2s para sincronização mais rápida
       return () => clearInterval(interval);
     }
   }, [isLoggedIn, settings.apiUrl]);
@@ -316,13 +316,6 @@ function App() {
                 <div className="card-header"><h2><Users size={18} /> Total</h2></div>
                 <div style={{ fontSize: '2rem', fontWeight: 800 }}>{contacts?.length || 0}</div>
               </section>
-
-              <section className="glass-card compact-card" style={{ marginTop: '1.5rem' }}>
-                <div className="card-header"><h2><Trash2 size={18} /> Manutenção</h2></div>
-                <p style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '1rem' }}>Limpar cache de imagens e mensagens.</p>
-                <button className="btn btn-outline" onClick={clearCache} style={{ width: '100%', borderColor: 'rgba(255,100,100,0.2)', color: '#ff6b6b', padding: '0.5rem' }} disabled={loading}>
-                  {loading ? 'Limpando...' : 'Limpar Cache'}
-                </button>
               </section>
             </div>
           </div>

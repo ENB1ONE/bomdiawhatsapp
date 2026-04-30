@@ -316,7 +316,6 @@ function App() {
                 <div className="card-header"><h2><Users size={18} /> Total</h2></div>
                 <div style={{ fontSize: '2rem', fontWeight: 800 }}>{contacts?.length || 0}</div>
               </section>
-              </section>
             </div>
           </div>
         )}

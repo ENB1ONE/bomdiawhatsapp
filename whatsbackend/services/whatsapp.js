@@ -28,12 +28,10 @@ function initWhatsApp(onQR) {
         authStrategy: new LocalAuth({
             dataPath: './.wwebjs_auth'
         }),
-        authTimeoutMs: 120000, 
-        // Comentado para evitar erro 'me is undefined' causado por versão muito antiga
-        // webVersionCache: {
-        //     type: 'remote',
-        //     remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-        // },
+        webVersionCache: {
+            type: 'remote',
+            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        },
         puppeteer: {
             headless: 'new',
             executablePath: '/usr/bin/chromium',
@@ -79,10 +77,11 @@ function initWhatsApp(onQR) {
     client.on('disconnected', (reason) => {
         console.log('WhatsApp Disconnected', reason);
         isReady = false;
-        setTimeout(() => {
-            console.log('Tentando reconectar...');
-            client.initialize().catch(err => console.error('Erro na reinicialização:', err));
-        }, 10000);
+        setTimeout(async () => {
+            console.log('Derrubando o processo para o Docker reiniciar de forma limpa...');
+            try { await client.destroy(); } catch (e) {}
+            process.exit(1);
+        }, 3000);
     });
 
     console.log("Iniciando WhatsApp Client...");

@@ -29,14 +29,15 @@ function initWhatsApp(onQR) {
             dataPath: './.wwebjs_auth'
         }),
         authTimeoutMs: 120000, 
-        webVersionCache: {
-            type: 'remote',
-            remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
-        },
+        // Comentado para evitar erro 'me is undefined' causado por versão muito antiga
+        // webVersionCache: {
+        //     type: 'remote',
+        //     remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+        // },
         puppeteer: {
             headless: 'new',
             executablePath: '/usr/bin/chromium',
-            protocolTimeout: 0, // Desabilita o timeout do protocolo para evitar o erro Runtime.callFunctionOn timed out
+            // protocolTimeout removido pois mascarava travamentos reais do navegador
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',

@@ -28,6 +28,7 @@ function initWhatsApp(onQR) {
         authStrategy: new LocalAuth({
             dataPath: './.wwebjs_auth'
         }),
+        authTimeoutMs: 60000,
         puppeteer: {
             headless: 'new',
             executablePath: '/usr/bin/chromium',
@@ -68,6 +69,11 @@ function initWhatsApp(onQR) {
     client.on('auth_failure', (msg) => {
         console.error('WhatsApp Auth failure', msg);
         isReady = false;
+        const sessionPath = path.join(process.cwd(), '.wwebjs_auth');
+        if (fs.existsSync(sessionPath)) {
+            console.log('Removendo cache de sessão corrompido para forçar novo QR Code...');
+            fs.rmSync(sessionPath, { recursive: true, force: true });
+        }
     });
 
     client.on('disconnected', (reason) => {
@@ -131,3 +137,17 @@ function getStatus() {
 }
 
 module.exports = { initWhatsApp, sendMessage, getStatus };
+
+// Intercepta falhas de timeout de autenticação que o whatsapp-web.js lança fora dos eventos padrões
+process.on('unhandledRejection', (reason, promise) => {
+    if (reason && reason.toString().includes('auth timeout')) {
+        console.error('Falha crítica de Auth Timeout detectada!');
+        const sessionPath = path.join(process.cwd(), '.wwebjs_auth');
+        if (fs.existsSync(sessionPath)) {
+            console.log('Deletando .wwebjs_auth corrompido...');
+            fs.rmSync(sessionPath, { recursive: true, force: true });
+        }
+        console.log('Reiniciando processo...');
+        process.exit(1);
+    }
+});

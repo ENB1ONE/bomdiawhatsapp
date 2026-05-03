@@ -21,18 +21,23 @@ function initWhatsAppForUser(username) {
     const dataPath = `./.wwebjs_auth/session-${username}`;
 
     // Limpeza de travas do Chromium para evitar erro de "Profile in use"
-    const sessionPath = path.join(process.cwd(), `.wwebjs_auth/session-${username}/session`);
-    if (fs.existsSync(sessionPath)) {
-        const files = fs.readdirSync(sessionPath);
-        for (const file of files) {
-            if (file.startsWith('Singleton')) {
+    const baseSessionPath = path.join(process.cwd(), `.wwebjs_auth/session-${username}`);
+    function removeSingletonLocks(dirPath) {
+        if (!fs.existsSync(dirPath)) return;
+        const items = fs.readdirSync(dirPath);
+        for (const item of items) {
+            const itemPath = path.join(dirPath, item);
+            if (fs.statSync(itemPath).isDirectory()) {
+                removeSingletonLocks(itemPath);
+            } else if (item.startsWith('Singleton')) {
                 try {
-                    fs.unlinkSync(path.join(sessionPath, file));
-                    console.log(`[${username}] Antiga trava do Chromium (${file}) removida.`);
-                } catch (err) { }
+                    fs.unlinkSync(itemPath);
+                    console.log(`[${username}] Antiga trava do Chromium removida: ${item}`);
+                } catch (err) {}
             }
         }
     }
+    removeSingletonLocks(baseSessionPath);
 
     const client = new Client({
         authStrategy: new LocalAuth({

@@ -55,7 +55,7 @@ const authMiddleware = (req, res, next) => {
     const user = auth[0];
     const pass = auth[1];
 
-    const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    const db = getDB();
     const foundUser = db.users?.find(u => u.username === user && u.password === pass);
 
     if (foundUser) {
@@ -69,7 +69,7 @@ const authMiddleware = (req, res, next) => {
 // Rota de Login (pública para o front validar)
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
-    const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    const db = getDB();
     const foundUser = db.users?.find(u => u.username === username && u.password === password);
     
     if (foundUser) {
@@ -122,6 +122,20 @@ function getDB() {
         changed = true;
     }
     
+    // Migração para incluir usuários, calendário e automação global
+    if (!db.users || !Array.isArray(db.users) || db.users.length === 0) {
+        db.users = [{ username: "enb1one", password: "enb1palms@28", role: "admin" }];
+        changed = true;
+    }
+    if (!db.calendar) {
+        db.calendar = [];
+        changed = true;
+    }
+    if (typeof db.settings.autoSendEnabled === 'undefined') {
+        db.settings.autoSendEnabled = true;
+        changed = true;
+    }
+
     if (changed) saveDB(db);
     return db;
 }

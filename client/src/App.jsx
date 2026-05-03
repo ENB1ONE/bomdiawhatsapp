@@ -122,22 +122,26 @@ function App() {
     try {
       const config = { headers: getAuthHeader() };
       const role = sessionStorage.getItem('whatsapp_role');
-      
       const reqs = [
         axios.get(`${API_BASE}/contacts`, config).catch(e => ({ data: [] })),
-        axios.get(`${API_BASE}/settings`, config).catch(e => ({ data: null })),
+        axios.get(`${API_BASE}/settings`, config).catch(e => ({ data: {} })),
         axios.get(`${API_BASE}/logs`, config).catch(e => ({ data: [] })),
-        axios.get(`${API_BASE}/calendar`, config).catch(e => ({ data: [] }))
+        axios.get(`${API_BASE}/calendar`, config).catch(e => ({ data: [] })),
+        axios.get(`${API_BASE}/groups`, config).catch(e => ({ data: [] }))
       ];
 
       if (role === 'admin') {
         reqs.push(axios.get(`${API_BASE}/users`, config).catch(e => ({ data: [] })));
-        reqs.push(axios.get(`${API_BASE}/groups`, config).catch(e => ({ data: [] })));
       }
 
       const results = await Promise.all(reqs);
 
-      const [contactsRes, settingsRes, logsRes, calendarRes, usersRes, groupsRes] = results;
+      const contactsRes = results[0];
+      const settingsRes = results[1];
+      const logsRes = results[2];
+      const calendarRes = results[3];
+      const groupsRes = results[4];
+      const usersRes = role === 'admin' ? results[5] : null;
 
       if (contactsRes.status === 401 || settingsRes.status === 401 || logsRes.status === 401) {
          handleLogout();
@@ -148,10 +152,10 @@ function App() {
       if (settingsRes.data) setSettings(prev => ({ ...prev, ...settingsRes.data }));
       setLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
       setCalendarEvents(Array.isArray(calendarRes.data) ? calendarRes.data : []);
+      setGroupsList(Array.isArray(groupsRes.data) ? groupsRes.data : []);
       
-      if (role === 'admin') {
-        if (usersRes && Array.isArray(usersRes.data)) setUsersList(usersRes.data);
-        if (groupsRes && Array.isArray(groupsRes.data)) setGroupsList(groupsRes.data);
+      if (role === 'admin' && usersRes && Array.isArray(usersRes.data)) {
+         setUsersList(usersRes.data);
       }
 
     } catch (err) {}

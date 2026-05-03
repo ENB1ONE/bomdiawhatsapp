@@ -525,6 +525,8 @@ function App() {
              )}
           </div>
         )}
+
+        {activeTab === 'contacts' && (
           <div className="animate-in">
             <section className="glass-card" style={{ marginBottom: '2rem' }}>
               <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>

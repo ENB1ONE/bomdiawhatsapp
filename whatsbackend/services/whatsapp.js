@@ -62,6 +62,7 @@ function initWhatsAppForUser(username) {
         puppeteer: {
             headless: 'new',
             executablePath: '/usr/bin/chromium',
+            protocolTimeout: 0,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -127,9 +128,19 @@ function initWhatsAppForUser(username) {
             console.log(`[${username}] Derrubando processo para reiniciar de forma limpa...`);
             try { 
                 if (clients[username]) await clients[username].destroy(); 
-            } catch (e) {} // Ignorar TargetCloseError durante o destroy
+            } catch (e) {} 
             delete clients[username];
-            initWhatsAppForUser(username);
+            
+            // Só reinicia se o usuário ainda constar no sistema (não foi deletado do app)
+            const dbPath = path.join(process.cwd(), 'database.json');
+            let userExists = true;
+            if (fs.existsSync(dbPath)) {
+                const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+                if (!db.users || !db.users.find(u => u.username === username)) userExists = false;
+            }
+            if (userExists) {
+                initWhatsAppForUser(username);
+            }
         }, 5000);
     });
 
@@ -153,7 +164,6 @@ function initWhatsAppForUser(username) {
 async function initializeAllClientsSequentially(users) {
     if (!users || users.length === 0) return;
 
-    // Prioriza admins
     const sortedUsers = [...users].sort((a, b) => {
         if (a.role === 'admin' && b.role !== 'admin') return -1;
         if (a.role !== 'admin' && b.role === 'admin') return 1;
@@ -165,7 +175,6 @@ async function initializeAllClientsSequentially(users) {
     for (const user of sortedUsers) {
         console.log(`-> Na fila: ${user.username}`);
         initWhatsAppForUser(user.username);
-        // Aguarda 15 segundos entre inicializações para não estourar a CPU
         await new Promise(resolve => setTimeout(resolve, 15000));
     }
 }
@@ -217,12 +226,34 @@ function getClient(username) {
     return clients[username];
 }
 
+async function destroyClient(username) {
+    console.log(`[${username}] Destruindo sessão do usuário removido...`);
+    if (clients[username]) {
+        try {
+            await clients[username].destroy();
+        } catch (e) {}
+        delete clients[username];
+    }
+    delete qrCodes[username];
+    delete isReadyStatus[username];
+    
+    const dataPath = `./.wwebjs_auth/session-${username}`;
+    if (fs.existsSync(dataPath)) {
+        try {
+            fs.rmSync(dataPath, { recursive: true, force: true });
+        } catch (e) {
+            console.error(`[${username}] Erro ao apagar pasta de sessão após exclusão de usuário:`, e);
+        }
+    }
+}
+
 module.exports = { 
     initWhatsAppForUser, 
     initializeAllClientsSequentially, 
     sendMessage, 
     getStatus, 
-    getClient 
+    getClient,
+    destroyClient
 };
 
 // Intercepta falhas de timeout que o whatsapp-web.js lança globalmente

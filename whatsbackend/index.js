@@ -6,7 +6,7 @@ const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { initWhatsAppForUser, initializeAllClientsSequentially, sendMessage, getStatus, getClient } = require('./services/whatsapp');
+const { initWhatsAppForUser, initializeAllClientsSequentially, sendMessage, getStatus, getClient, destroyClient } = require('./services/whatsapp');
 const { generateImage } = require('./services/gemini');
 
 // Configuração do multer para upload de imagens
@@ -183,12 +183,16 @@ app.post('/users', adminOnly, (req, res) => {
     res.json({ success: true });
 });
 
-app.delete('/users/:username', adminOnly, (req, res) => {
+app.delete('/users/:username', adminOnly, async (req, res) => {
     const { username } = req.params;
     const db = getDB();
     if (username === req.user.username) return res.status(400).json({ error: "Não é possível deletar a si próprio" });
     db.users = db.users.filter(u => u.username !== username);
     saveDB(db);
+    
+    // Mata a sessão do WhatsApp na memória e apaga a pasta
+    await destroyClient(username);
+    
     res.json({ success: true });
 });
 

@@ -24,10 +24,24 @@ function initWhatsAppForUser(username) {
     const baseSessionPath = path.join(process.cwd(), `.wwebjs_auth/session-${username}`);
     function removeSingletonLocks(dirPath) {
         if (!fs.existsSync(dirPath)) return;
-        const items = fs.readdirSync(dirPath);
+        let items = [];
+        try { items = fs.readdirSync(dirPath); } catch (e) { return; }
+        
         for (const item of items) {
             const itemPath = path.join(dirPath, item);
-            if (fs.statSync(itemPath).isDirectory()) {
+            let isDir = false;
+            try {
+                // lstatSync evita erro ENOENT em links simbólicos quebrados
+                isDir = fs.lstatSync(itemPath).isDirectory();
+            } catch (e) {
+                // Se o arquivo sumiu ou é um symlink quebrado, tenta apenas deletar se for Singleton
+                if (item.startsWith('Singleton')) {
+                    try { fs.unlinkSync(itemPath); } catch (err) {}
+                }
+                continue;
+            }
+            
+            if (isDir) {
                 removeSingletonLocks(itemPath);
             } else if (item.startsWith('Singleton')) {
                 try {

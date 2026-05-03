@@ -35,9 +35,11 @@ process.on('uncaughtException', (err) => {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const DB_PATH = path.join(__dirname, 'database.json');
+
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(bodyParser.json());
@@ -79,8 +81,6 @@ app.post('/login', (req, res) => {
 
 // Proteger todas as rotas abaixo com o middleware
 app.use(authMiddleware);
-
-const DB_PATH = path.join(__dirname, 'database.json');
 
 if (!fs.existsSync(DB_PATH)) {
     const initialData = {

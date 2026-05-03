@@ -1,38 +1,48 @@
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
 
-let client;
-let qrCodeData = null;
-let isReady = false;
+const clients = {};
+const qrCodes = {};
+const isReadyStatus = {};
 
-function initWhatsApp(onQR) {
+// Função auxiliar para inicializar um único cliente
+function initWhatsAppForUser(username) {
+    if (clients[username]) {
+        console.log(`[${username}] Cliente já inicializado ou em processo.`);
+        return;
+    }
+
+    console.log(`[${username}] Iniciando WhatsApp Client...`);
+    qrCodes[username] = null;
+    isReadyStatus[username] = false;
+
+    // Caminho da sessão específico por usuário
+    const dataPath = `./.wwebjs_auth/session-${username}`;
+
     // Limpeza de travas do Chromium para evitar erro de "Profile in use"
-    const sessionPath = path.join(process.cwd(), '.wwebjs_auth/session');
+    const sessionPath = path.join(process.cwd(), `.wwebjs_auth/session-${username}/session`);
     if (fs.existsSync(sessionPath)) {
         const files = fs.readdirSync(sessionPath);
         for (const file of files) {
             if (file.startsWith('Singleton')) {
                 try {
                     fs.unlinkSync(path.join(sessionPath, file));
-                    console.log(`Antiga trava do Chromium (${file}) removida com sucesso.`);
-                } catch (err) {
-                    console.error(`Erro ao remover trava ${file}:`, err);
-                }
+                    console.log(`[${username}] Antiga trava do Chromium (${file}) removida.`);
+                } catch (err) { }
             }
         }
     }
 
-    client = new Client({
+    const client = new Client({
         authStrategy: new LocalAuth({
-            dataPath: './.wwebjs_auth'
+            clientId: username,
+            dataPath: dataPath
         }),
         authTimeoutMs: 60000,
         puppeteer: {
             headless: 'new',
             executablePath: '/usr/bin/chromium',
-            // protocolTimeout removido pois mascarava travamentos reais do navegador
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -48,57 +58,54 @@ function initWhatsApp(onQR) {
         }
     });
 
+    clients[username] = client;
+
     client.on('qr', (qr) => {
-        console.log('QR RECEIVED', qr);
-        qrCodeData = qr;
-        isReady = false;
-        if (onQR) onQR(qr);
-        qrcode.generate(qr, { small: true });
+        console.log(`[${username}] QR RECEIVED`);
+        qrCodes[username] = qr;
+        isReadyStatus[username] = false;
     });
 
     client.on('ready', () => {
-        console.log('WhatsApp Client is ready!');
-        isReady = true;
-        qrCodeData = null;
+        console.log(`[${username}] WhatsApp Client is ready!`);
+        isReadyStatus[username] = true;
+        qrCodes[username] = null;
     });
 
     client.on('authenticated', () => {
-        console.log('WhatsApp Authenticated');
+        console.log(`[${username}] WhatsApp Authenticated`);
     });
 
     client.on('auth_failure', (msg) => {
-        console.error('WhatsApp Auth failure', msg);
-        isReady = false;
-        const sessionPath = path.join(process.cwd(), '.wwebjs_auth');
-        if (fs.existsSync(sessionPath)) {
-            console.log('Removendo cache de sessão corrompido para forçar novo QR Code...');
-            fs.rmSync(sessionPath, { recursive: true, force: true });
+        console.error(`[${username}] WhatsApp Auth failure`, msg);
+        isReadyStatus[username] = false;
+        if (fs.existsSync(dataPath)) {
+            console.log(`[${username}] Removendo cache corrompido...`);
+            fs.rmSync(dataPath, { recursive: true, force: true });
         }
     });
 
     client.on('disconnected', (reason) => {
-        console.log('WhatsApp Disconnected', reason);
-        isReady = false;
+        console.log(`[${username}] WhatsApp Disconnected`, reason);
+        isReadyStatus[username] = false;
         setTimeout(async () => {
-            console.log('Derrubando o processo para o Docker reiniciar de forma limpa...');
+            console.log(`[${username}] Derrubando processo para reiniciar de forma limpa...`);
             try { await client.destroy(); } catch (e) {}
-            process.exit(1);
+            delete clients[username]; // Remove para que possa ser reiniciado
+            initWhatsAppForUser(username); // Tenta reiniciar automaticamente a sessão
         }, 3000);
     });
 
-    console.log("Iniciando WhatsApp Client...");
-    
-    // Função de inicialização com tentativa de retry
     const startClient = async (retries = 3) => {
         try {
             await client.initialize();
         } catch (err) {
-            console.error(`Erro ao inicializar WhatsApp (Tentativas restantes: ${retries}):`, err.message);
+            console.error(`[${username}] Erro ao inicializar (Tentativas: ${retries}):`, err.message);
             if (retries > 0) {
-                console.log("Aguardando 10 segundos antes de tentar novamente...");
                 setTimeout(() => startClient(retries - 1), 10000);
             } else {
-                console.error("Falha fatal após múltiplas tentativas.");
+                console.error(`[${username}] Falha fatal. Destruindo cliente.`);
+                delete clients[username];
             }
         }
     };
@@ -106,16 +113,35 @@ function initWhatsApp(onQR) {
     startClient();
 }
 
-async function sendMessage(to, text, mediaBuffer = null, filename = 'image.png') {
-    if (!isReady) throw new Error("WhatsApp client not ready");
+async function initializeAllClientsSequentially(users) {
+    if (!users || users.length === 0) return;
 
-    // Resolve o ID correto do WhatsApp (trata números com ou sem o 9 extra, e resolve o erro de LID)
+    // Prioriza admins
+    const sortedUsers = [...users].sort((a, b) => {
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (a.role !== 'admin' && b.role === 'admin') return 1;
+        return 0;
+    });
+
+    console.log(`Iniciando a fila de navegadores (${sortedUsers.length} usuários encontrados)...`);
+
+    for (const user of sortedUsers) {
+        console.log(`-> Na fila: ${user.username}`);
+        initWhatsAppForUser(user.username);
+        // Aguarda 15 segundos entre inicializações para não estourar a CPU
+        await new Promise(resolve => setTimeout(resolve, 15000));
+    }
+}
+
+async function sendMessage(username, to, text, mediaBuffer = null, filename = 'image.png') {
+    const client = clients[username];
+    if (!client || !isReadyStatus[username]) throw new Error(`[${username}] WhatsApp client not ready`);
+
     let chatId = to;
     if (!to.includes('@c.us') && !to.includes('@g.us')) {
         chatId = `${to}@c.us`;
     }
     
-    // getNumberId só funciona para contatos normais, não para grupos
     if (!chatId.includes('@g.us')) {
         try {
             const numberDetails = await client.getNumberId(to);
@@ -123,7 +149,7 @@ async function sendMessage(to, text, mediaBuffer = null, filename = 'image.png')
                 chatId = numberDetails._serialized;
             }
         } catch (e) {
-            console.warn(`Aviso: Não foi possível validar o número ${to}, tentando envio direto.`);
+            console.warn(`[${username}] Aviso: Não foi possível validar o número ${to}, tentando envio direto.`);
         }
     }
 
@@ -135,29 +161,29 @@ async function sendMessage(to, text, mediaBuffer = null, filename = 'image.png')
     }
 }
 
-function getStatus() {
+function getStatus(username) {
     return {
-        isReady,
-        qrCodeData
+        isReady: isReadyStatus[username] || false,
+        qrCodeData: qrCodes[username] || null
     };
 }
 
-function getClient() {
-    return client;
+function getClient(username) {
+    return clients[username];
 }
 
-module.exports = { initWhatsApp, sendMessage, getStatus, getClient };
+module.exports = { 
+    initWhatsAppForUser, 
+    initializeAllClientsSequentially, 
+    sendMessage, 
+    getStatus, 
+    getClient 
+};
 
-// Intercepta falhas de timeout de autenticação que o whatsapp-web.js lança fora dos eventos padrões
+// Intercepta falhas de timeout que o whatsapp-web.js lança globalmente
 process.on('unhandledRejection', (reason, promise) => {
     if (reason && reason.toString().includes('auth timeout')) {
-        console.error('Falha crítica de Auth Timeout detectada!');
-        const sessionPath = path.join(process.cwd(), '.wwebjs_auth');
-        if (fs.existsSync(sessionPath)) {
-            console.log('Deletando .wwebjs_auth corrompido...');
-            fs.rmSync(sessionPath, { recursive: true, force: true });
-        }
-        console.log('Reiniciando processo...');
+        console.error('Falha crítica de Auth Timeout global detectada. Reiniciando todo o contêiner...');
         process.exit(1);
     }
 });

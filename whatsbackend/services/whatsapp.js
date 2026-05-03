@@ -110,15 +110,21 @@ async function sendMessage(to, text, mediaBuffer = null, filename = 'image.png')
     if (!isReady) throw new Error("WhatsApp client not ready");
 
     // Resolve o ID correto do WhatsApp (trata números com ou sem o 9 extra, e resolve o erro de LID)
-    let chatId = to.includes('@c.us') ? to : `${to}@c.us`;
+    let chatId = to;
+    if (!to.includes('@c.us') && !to.includes('@g.us')) {
+        chatId = `${to}@c.us`;
+    }
     
-    try {
-        const numberDetails = await client.getNumberId(to);
-        if (numberDetails) {
-            chatId = numberDetails._serialized;
+    // getNumberId só funciona para contatos normais, não para grupos
+    if (!chatId.includes('@g.us')) {
+        try {
+            const numberDetails = await client.getNumberId(to);
+            if (numberDetails) {
+                chatId = numberDetails._serialized;
+            }
+        } catch (e) {
+            console.warn(`Aviso: Não foi possível validar o número ${to}, tentando envio direto.`);
         }
-    } catch (e) {
-        console.warn(`Aviso: Não foi possível validar o número ${to}, tentando envio direto.`);
     }
 
     if (mediaBuffer) {
@@ -136,7 +142,11 @@ function getStatus() {
     };
 }
 
-module.exports = { initWhatsApp, sendMessage, getStatus };
+function getClient() {
+    return client;
+}
+
+module.exports = { initWhatsApp, sendMessage, getStatus, getClient };
 
 // Intercepta falhas de timeout de autenticação que o whatsapp-web.js lança fora dos eventos padrões
 process.on('unhandledRejection', (reason, promise) => {

@@ -37,16 +37,27 @@ function App() {
   const [contacts, setContacts] = useState([]);
   const [logs, setLogs] = useState([]);
   const [expandedLogId, setExpandedLogId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [usersList, setUsersList] = useState([]);
+  const [groupsList, setGroupsList] = useState([]);
   const [selectedTestContact, setSelectedTestContact] = useState('');
   const [settings, setSettings] = useState({
     morningPrompt: "",
     nightPrompt: "",
     morningTime: '08:00',
     nightTime: '20:00',
-    apiUrl: 'https://api.servicesbr.duckdns.org'
+    apiUrl: 'https://api.servicesbr.duckdns.org',
+    autoSendEnabled: true
   });
   const [newContact, setNewContact] = useState({ name: '', phone: '' });
   const [loading, setLoading] = useState(false);
+
+  // Estados do Calendário
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [selectedDateStr, setSelectedDateStr] = useState('');
+  const [eventForm, setEventForm] = useState({ time: '10:00', targetId: '', text: '', image: null });
 
   const API_BASE = settings?.apiUrl || 'https://api.servicesbr.duckdns.org';
 
@@ -61,7 +72,11 @@ function App() {
     const savedApiUrl = localStorage.getItem('whatsapp_api_url');
     if (savedApiUrl) setSettings(s => ({ ...s, apiUrl: savedApiUrl }));
     const savedAuth = sessionStorage.getItem('whatsapp_auth');
-    if (savedAuth) setIsLoggedIn(true);
+    const savedRole = sessionStorage.getItem('whatsapp_role');
+    if (savedAuth) {
+      setIsLoggedIn(true);
+      if (savedRole) setUserRole(savedRole);
+    }
   }, []);
 
   useEffect(() => {
@@ -83,6 +98,8 @@ function App() {
       if (res.data?.success) {
         const authString = btoa(`${loginForm.username}:${loginForm.password}`);
         sessionStorage.setItem('whatsapp_auth', authString);
+        sessionStorage.setItem('whatsapp_role', res.data.role);
+        setUserRole(res.data.role);
         setIsLoggedIn(true);
       } else {
         alert('Credenciais inválidas.');
@@ -96,17 +113,31 @@ function App() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('whatsapp_auth');
+    sessionStorage.removeItem('whatsapp_role');
     setIsLoggedIn(false);
+    setUserRole(null);
   };
 
   const fetchData = async () => {
     try {
       const config = { headers: getAuthHeader() };
-      const [contactsRes, settingsRes, logsRes] = await Promise.all([
+      const role = sessionStorage.getItem('whatsapp_role');
+      
+      const reqs = [
         axios.get(`${API_BASE}/contacts`, config).catch(e => ({ data: [] })),
         axios.get(`${API_BASE}/settings`, config).catch(e => ({ data: null })),
-        axios.get(`${API_BASE}/logs`, config).catch(e => ({ data: [] }))
-      ]);
+        axios.get(`${API_BASE}/logs`, config).catch(e => ({ data: [] })),
+        axios.get(`${API_BASE}/calendar`, config).catch(e => ({ data: [] }))
+      ];
+
+      if (role === 'admin') {
+        reqs.push(axios.get(`${API_BASE}/users`, config).catch(e => ({ data: [] })));
+        reqs.push(axios.get(`${API_BASE}/groups`, config).catch(e => ({ data: [] })));
+      }
+
+      const results = await Promise.all(reqs);
+
+      const [contactsRes, settingsRes, logsRes, calendarRes, usersRes, groupsRes] = results;
 
       if (contactsRes.status === 401 || settingsRes.status === 401 || logsRes.status === 401) {
          handleLogout();
@@ -116,6 +147,13 @@ function App() {
       setContacts(Array.isArray(contactsRes.data) ? contactsRes.data : []);
       if (settingsRes.data) setSettings(prev => ({ ...prev, ...settingsRes.data }));
       setLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
+      setCalendarEvents(Array.isArray(calendarRes.data) ? calendarRes.data : []);
+      
+      if (role === 'admin') {
+        if (usersRes && Array.isArray(usersRes.data)) setUsersList(usersRes.data);
+        if (groupsRes && Array.isArray(groupsRes.data)) setGroupsList(groupsRes.data);
+      }
+
     } catch (err) {}
   };
 
@@ -183,6 +221,18 @@ function App() {
     }
   };
 
+  const toggleAutoSend = async (enabled) => {
+    try {
+      setLoading(true);
+      await axios.put(`${API_BASE}/settings/toggle-auto`, { enabled }, { headers: getAuthHeader() });
+      setSettings(prev => ({ ...prev, autoSendEnabled: enabled }));
+    } catch (err) {
+      alert('Erro ao alterar status global.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleLog = (id) => {
     setExpandedLogId(expandedLogId === id ? null : id);
   };
@@ -214,7 +264,11 @@ function App() {
         <div className="logo"><img src={logoImg} alt="Logo" /> WPP Sender</div>
         <nav>
           <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}><LayoutDashboard size={18} /> Dashboard</div>
+          <div className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`} onClick={() => { setActiveTab('calendar'); setIsSidebarOpen(false); }}><Calendar size={18} /> Calendário</div>
           <div className={`nav-item ${activeTab === 'contacts' ? 'active' : ''}`} onClick={() => { setActiveTab('contacts'); setIsSidebarOpen(false); }}><Users size={18} /> Contatos</div>
+          {userRole === 'admin' && (
+            <div className={`nav-item ${activeTab === 'users' ? 'active' : ''}`} onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); }}><Users size={18} /> Usuários</div>
+          )}
           <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}><Settings size={18} /> Ajustes</div>
         </nav>
         <div style={{ marginTop: 'auto' }}>
@@ -228,14 +282,13 @@ function App() {
       <main>
         <header>
           <div>
-            <h1>{activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'contacts' ? 'Contatos' : 'Ajustes'}</h1>
+            <h1>{activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'contacts' ? 'Contatos' : activeTab === 'settings' ? 'Ajustes' : activeTab === 'calendar' ? 'Calendário' : 'Usuários'}</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-              {activeTab === 'dashboard' ? 'Gestão de envios.' : activeTab === 'contacts' ? 'Gerencie seus contatos.' : 'Configurações do sistema.'}
+              {activeTab === 'dashboard' ? 'Gestão de envios.' : activeTab === 'contacts' ? 'Gerencie seus contatos.' : activeTab === 'settings' ? 'Configurações do sistema.' : activeTab === 'calendar' ? 'Agendamentos específicos.' : 'Controle de acesso.'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button className="btn btn-outline"><Bell size={18} /></button>
-            <button className="btn btn-primary" onClick={() => triggerTest('morning')}><Play size={16} /> Envio Imediato</button>
           </div>
         </header>
 
@@ -293,6 +346,23 @@ function App() {
 
             <div className="col-4">
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header"><h2><Globe size={18} /> Automação Global</h2></div>
+                <div style={{ padding: '1rem 0', textAlign: 'center' }}>
+                  <div className={`status-badge ${settings?.autoSendEnabled !== false ? 'online' : 'offline'}`} style={{ display: 'inline-flex', padding: '0.5rem 1rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                    <div className="indicator" /> {settings?.autoSendEnabled !== false ? 'Automação Ativada' : 'Automação Pausada'}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <button className="btn btn-outline" style={{ borderColor: 'var(--success-color)', color: 'var(--success-color)' }} onClick={() => toggleAutoSend(true)} disabled={settings?.autoSendEnabled !== false || loading}>
+                      Ativar
+                    </button>
+                    <button className="btn btn-outline" style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)' }} onClick={() => toggleAutoSend(false)} disabled={settings?.autoSendEnabled === false || loading}>
+                      Pausar
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header"><h2><PlayCircle size={18} /> Envio Agora</h2></div>
                 <div className="form-group" style={{ marginBottom: '1rem' }}>
                   <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
@@ -320,7 +390,141 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'contacts' && (
+        {activeTab === 'users' && userRole === 'admin' && (
+          <div className="animate-in">
+            <section className="glass-card" style={{ marginBottom: '2rem' }}>
+              <div className="card-header"><h2><Users size={18} /> Cadastrar Usuário</h2></div>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                   setLoading(true);
+                   await axios.post(`${API_BASE}/users`, { username: e.target.username.value, password: e.target.password.value, role: e.target.role.value }, { headers: getAuthHeader() });
+                   alert('Usuário cadastrado');
+                   e.target.reset();
+                   fetchData();
+                } catch(err) { alert('Erro ao cadastrar'); } finally { setLoading(false); }
+              }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+                <div><label>Usuário</label><input name="username" required /></div>
+                <div><label>Senha</label><input name="password" required type="password" /></div>
+                <div><label>Nível</label><select name="role"><option value="user">Usuário</option><option value="admin">Admin</option></select></div>
+                <button type="submit" className="btn btn-primary" disabled={loading}>Salvar</button>
+              </form>
+            </section>
+            <section className="glass-card">
+               <div className="card-header"><h2><Users size={18} /> Lista de Usuários</h2></div>
+               <div className="contact-list">
+                 {usersList.map(u => (
+                    <div key={u.username} className="contact-row">
+                      <div><p style={{ fontWeight: 700 }}>{u.username}</p><p style={{ fontSize: '0.8rem', opacity: 0.5 }}>{u.role}</p></div>
+                      <button onClick={async () => {
+                         if(!confirm('Deletar usuário?')) return;
+                         try { await axios.delete(`${API_BASE}/users/${u.username}`, { headers: getAuthHeader() }); fetchData(); } catch(err) { alert('Erro'); }
+                      }} className="delete-btn"><Trash2 size={16} /></button>
+                    </div>
+                 ))}
+               </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === 'calendar' && (
+          <div className="animate-in">
+             <section className="glass-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                   <h2><Calendar size={18} /> Calendário - {currentDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })}</h2>
+                   <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-outline" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>Anterior</button>
+                      <button className="btn btn-outline" onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>Próximo</button>
+                   </div>
+                </div>
+                <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
+                   {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => <div key={d} style={{ fontWeight: 'bold', padding: '0.5rem' }}>{d}</div>)}
+                   {Array.from({ length: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay() }).map((_, i) => <div key={`empty-${i}`} />)}
+                   {Array.from({ length: new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate() }).map((_, i) => {
+                      const day = i + 1;
+                      const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      
+                      // Check for fixed brazilian holidays
+                      const isHoliday = ['01-01','21-04','01-05','07-09','12-10','02-11','15-11','25-12'].includes(`${String(day).padStart(2, '0')}-${String(currentDate.getMonth()+1).padStart(2, '0')}`);
+                      const dayEvents = calendarEvents.filter(e => e.date === dateStr);
+                      
+                      return (
+                        <div key={day} onClick={() => { setSelectedDateStr(dateStr); setShowEventModal(true); }} style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer', background: isHoliday ? 'rgba(255,100,100,0.1)' : 'rgba(255,255,255,0.05)' }}>
+                           <div style={{ fontWeight: 'bold', color: isHoliday ? '#ff6b6b' : 'inherit' }}>{day}</div>
+                           {dayEvents.length > 0 && <div style={{ fontSize: '0.7rem', marginTop: '0.25rem', color: 'var(--accent-color)' }}>{dayEvents.length} agendado(s)</div>}
+                        </div>
+                      )
+                   })}
+                </div>
+             </section>
+
+             <section className="glass-card">
+               <div className="card-header"><h2>Eventos Agendados</h2></div>
+               <div className="compact-log-list">
+                 {calendarEvents.length === 0 ? <p style={{opacity:0.5}}>Nenhum evento agendado.</p> : calendarEvents.map(ev => (
+                   <div key={ev.id} className="log-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <strong>{ev.date} às {ev.time}</strong> - Para: {ev.targetId} <br/>
+                        <small style={{ opacity: 0.7 }}>{ev.text}</small>
+                        {ev.sent && <span style={{ color: 'var(--success-color)', fontSize: '0.7rem', marginLeft: '10px' }}>(Enviado)</span>}
+                      </div>
+                      <button className="delete-btn" onClick={async () => {
+                         if(!confirm('Cancelar agendamento?')) return;
+                         try { await axios.delete(`${API_BASE}/calendar/${ev.id}`, { headers: getAuthHeader() }); fetchData(); } catch(err) { alert('Erro'); }
+                      }}><Trash2 size={16} /></button>
+                   </div>
+                 ))}
+               </div>
+             </section>
+
+             {showEventModal && (
+               <div className="mobile-backdrop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                 <div className="glass-card animate-in" style={{ width: '100%', maxWidth: '500px' }}>
+                   <h2>Agendar Envio: {selectedDateStr}</h2>
+                   <form onSubmit={async (e) => {
+                     e.preventDefault();
+                     try {
+                       setLoading(true);
+                       const formData = new FormData();
+                       formData.append('date', selectedDateStr);
+                       formData.append('time', eventForm.time);
+                       formData.append('targetId', eventForm.targetId);
+                       formData.append('text', eventForm.text);
+                       if (eventForm.image) formData.append('image', eventForm.image);
+
+                       await axios.post(`${API_BASE}/calendar`, formData, { headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' } });
+                       alert('Agendado com sucesso!');
+                       setShowEventModal(false);
+                       fetchData();
+                     } catch(err) { alert('Erro ao agendar'); } finally { setLoading(false); }
+                   }}>
+                     <div className="form-group"><label>Horário (HH:MM)</label><input type="time" required value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} /></div>
+                     
+                     <div className="form-group"><label>Destinatário (Contato ou Grupo)</label>
+                       <select required value={eventForm.targetId} onChange={e => setEventForm({...eventForm, targetId: e.target.value})}>
+                         <option value="">Selecione...</option>
+                         <optgroup label="Grupos do WhatsApp">
+                           {groupsList.map(g => <option key={g.id} value={g.id}>{g.name} (Grupo)</option>)}
+                         </optgroup>
+                         <optgroup label="Meus Contatos">
+                           {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
+                         </optgroup>
+                       </select>
+                     </div>
+
+                     <div className="form-group"><label>Texto Especial</label><textarea rows="3" required value={eventForm.text} onChange={e => setEventForm({...eventForm, text: e.target.value})} /></div>
+                     <div className="form-group"><label>Imagem (Opcional)</label><input type="file" accept="image/*" onChange={e => setEventForm({...eventForm, image: e.target.files[0]})} /></div>
+                     
+                     <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                       <button type="button" className="btn btn-outline" onClick={() => setShowEventModal(false)} style={{ flex: 1 }}>Cancelar</button>
+                       <button type="submit" className="btn btn-primary" disabled={loading} style={{ flex: 1 }}>Confirmar</button>
+                     </div>
+                   </form>
+                 </div>
+               </div>
+             )}
+          </div>
+        )}
           <div className="animate-in">
             <section className="glass-card" style={{ marginBottom: '2rem' }}>
               <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>

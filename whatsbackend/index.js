@@ -5,8 +5,24 @@ const bodyParser = require('body-parser');
 const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 const { initWhatsApp, sendMessage, getStatus } = require('./services/whatsapp');
 const { generateImage } = require('./services/gemini');
+
+// Configuração do multer para upload de imagens
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir)
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+  }
+});
+const upload = multer({ storage: storage });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -26,9 +42,6 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 
-const AUTH_USER = "enb1one";
-const AUTH_PASS = "enb1palms@28";
-
 // Middleware de Autenticação
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -40,7 +53,11 @@ const authMiddleware = (req, res, next) => {
     const user = auth[0];
     const pass = auth[1];
 
-    if (user === AUTH_USER && pass === AUTH_PASS) {
+    const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    const foundUser = db.users?.find(u => u.username === user && u.password === pass);
+
+    if (foundUser) {
+        req.user = foundUser;
         next();
     } else {
         res.status(401).json({ error: "Credenciais inválidas." });
@@ -50,8 +67,11 @@ const authMiddleware = (req, res, next) => {
 // Rota de Login (pública para o front validar)
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
-    if (username === AUTH_USER && password === AUTH_PASS) {
-        res.json({ success: true });
+    const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    const foundUser = db.users?.find(u => u.username === username && u.password === password);
+    
+    if (foundUser) {
+        res.json({ success: true, role: foundUser.role });
     } else {
         res.status(401).json({ success: false, error: "Usuário ou senha incorretos" });
     }
@@ -66,11 +86,14 @@ if (!fs.existsSync(DB_PATH)) {
     const initialData = {
         contacts: [],
         logs: [],
+        users: [{ username: "enb1one", password: "enb1palms@28", role: "admin" }],
+        calendar: [],
         settings: {
             morningPrompt: "Com fé e otimismo, gere uma mensagem calorosa de 'Bom Dia' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem matinal realista, vibrante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.",
             nightPrompt: "Com fé e otimismo, gere uma mensagem calorosa de 'Boa Noite' para WhatsApp com encorajamento, saúde, esperança e emojis. Crie também um prompt em inglês de uma imagem noturna realista, aconchegante e de paz. A imagem DEVE ser 100% visual, estritamente SEM textos ou letras.",
             morningTime: "08:00",
-            nightTime: "20:00"
+            nightTime: "20:00",
+            autoSendEnabled: true
         }
     };
     fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
@@ -122,6 +145,54 @@ function addLog(type, status, details) {
 }
 
 // API Endpoints
+const adminOnly = (req, res, next) => {
+    if (req.user && req.user.role === 'admin') next();
+    else res.status(403).json({ error: "Acesso negado. Apenas administradores." });
+};
+
+app.get('/users', adminOnly, (req, res) => {
+    const db = getDB();
+    // Não retorna senhas para o front
+    const safeUsers = (db.users || []).map(u => ({ username: u.username, role: u.role }));
+    res.json(safeUsers);
+});
+
+app.post('/users', adminOnly, (req, res) => {
+    const { username, password, role } = req.body;
+    const db = getDB();
+    if (!db.users) db.users = [];
+    if (db.users.find(u => u.username === username)) {
+        return res.status(400).json({ error: "Usuário já existe" });
+    }
+    db.users.push({ username, password, role: role || 'user' });
+    saveDB(db);
+    res.json({ success: true });
+});
+
+app.delete('/users/:username', adminOnly, (req, res) => {
+    const { username } = req.params;
+    const db = getDB();
+    if (username === req.user.username) {
+        return res.status(400).json({ error: "Não é possível deletar o próprio usuário" });
+    }
+    db.users = db.users.filter(u => u.username !== username);
+    saveDB(db);
+    res.json({ success: true });
+});
+
+app.put('/users/:username', adminOnly, (req, res) => {
+    const { username } = req.params;
+    const { password, role } = req.body;
+    const db = getDB();
+    const userIndex = db.users.findIndex(u => u.username === username);
+    if (userIndex === -1) return res.status(404).json({ error: "Usuário não encontrado" });
+    
+    if (password) db.users[userIndex].password = password;
+    if (role) db.users[userIndex].role = role;
+    saveDB(db);
+    res.json({ success: true });
+});
+
 app.get('/status', (req, res) => {
     res.json(getStatus());
 });
@@ -150,7 +221,70 @@ app.get('/settings', (req, res) => {
     res.json(getDB().settings);
 });
 
+app.put('/settings/toggle-auto', adminOnly, (req, res) => {
+    const { enabled } = req.body;
+    const db = getDB();
+    db.settings.autoSendEnabled = enabled;
+    saveDB(db);
+    res.json({ success: true, autoSendEnabled: enabled });
+});
 
+app.get('/calendar', (req, res) => {
+    res.json(getDB().calendar || []);
+});
+
+app.post('/calendar', adminOnly, upload.single('image'), (req, res) => {
+    const { date, time, targetId, text } = req.body;
+    const db = getDB();
+    if (!db.calendar) db.calendar = [];
+    
+    const newEvent = {
+        id: Date.now().toString(),
+        date,
+        time,
+        targetId, // Group ID or Phone number
+        text,
+        imagePath: req.file ? req.file.path : null,
+        sent: false
+    };
+    
+    db.calendar.push(newEvent);
+    saveDB(db);
+    res.json({ success: true, event: newEvent });
+});
+
+app.delete('/calendar/:id', adminOnly, (req, res) => {
+    const { id } = req.params;
+    const db = getDB();
+    if (!db.calendar) db.calendar = [];
+    
+    const eventIndex = db.calendar.findIndex(e => e.id === id);
+    if (eventIndex !== -1) {
+        const event = db.calendar[eventIndex];
+        if (event.imagePath && fs.existsSync(event.imagePath)) {
+            fs.unlinkSync(event.imagePath); // Clean up file
+        }
+        db.calendar.splice(eventIndex, 1);
+        saveDB(db);
+    }
+    res.json({ success: true });
+});
+
+app.get('/groups', adminOnly, async (req, res) => {
+    try {
+        const { getClient } = require('./services/whatsapp');
+        const client = getClient();
+        if (!client) return res.status(500).json({ error: "WhatsApp cliente não inicializado" });
+        const chats = await client.getChats();
+        const groups = chats.filter(chat => chat.isGroup).map(group => ({
+            id: group.id._serialized,
+            name: group.name
+        }));
+        res.json(groups);
+    } catch (err) {
+        res.status(500).json({ error: "Erro ao buscar grupos", details: err.message });
+    }
+});
 
 app.get('/logs', (req, res) => {
     res.json(getDB().logs);
@@ -189,10 +323,32 @@ async function runAutomation(type, targetPhone = null) {
         let successes = [];
         let failures = [];
 
+        // Verifica se a automação global está ativa (só importa se não for um teste manual)
+        if (!targetPhone && db.settings.autoSendEnabled === false) {
+            console.log("Automação Global está DESATIVADA. Abortando envio automático.");
+            return;
+        }
+
+        // Determina data de hoje no formato YYYY-MM-DD local
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+        // Identifica os contatos (targetId) que possuem agendamento no calendário para o dia de hoje
+        const contactsWithEventToday = (db.calendar || [])
+            .filter(e => e.date === today && !e.sent)
+            .map(e => e.targetId);
+
         // Filtra contatos se houver um targetPhone específico
-        const contactsToSend = targetPhone 
+        let contactsToSend = targetPhone 
             ? db.contacts.filter(c => sanitizePhone(c.phone) === sanitizePhone(targetPhone))
             : db.contacts;
+
+        // Se for um envio automático, remove da lista de envio quem tem evento hoje
+        if (!targetPhone) {
+            contactsToSend = contactsToSend.filter(c => !contactsWithEventToday.includes(c.phone) && !contactsWithEventToday.includes(sanitizePhone(c.phone)));
+            if (contactsToSend.length < db.contacts.length) {
+                console.log(`Excluídos ${db.contacts.length - contactsToSend.length} contatos do envio automático pois possuem eventos no calendário hoje.`);
+            }
+        }
 
         if (targetPhone && contactsToSend.length === 0) {
             // Se o contato de teste não existe no BD, enviamos direto para ele mesmo assim
@@ -235,9 +391,71 @@ async function runAutomation(type, targetPhone = null) {
     }
 }
 
+async function runCalendarEvents() {
+    const db = getDB();
+    if (!db.calendar || db.calendar.length === 0) return;
+
+    const now = new Date();
+    // Use local time in Brazil to compare with stored dates/times
+    const today = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
+    const timeNow = now.toLocaleTimeString('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }); // HH:MM
+
+    const pendingEvents = db.calendar.filter(e => !e.sent && e.date === today && e.time === timeNow);
+
+    if (pendingEvents.length === 0) return;
+
+    console.log(`\n--- ENVIANDO EVENTOS AGENDADOS: ${today} ${timeNow} ---`);
+    
+    let dbChanged = false;
+
+    for (const event of pendingEvents) {
+        try {
+            console.log(`Enviando evento para ${event.targetId}...`);
+            let mediaBuffer = null;
+            let filename = null;
+
+            if (event.imagePath && fs.existsSync(event.imagePath)) {
+                mediaBuffer = fs.readFileSync(event.imagePath);
+                filename = path.basename(event.imagePath);
+            }
+
+            const targetId = event.targetId.includes('@g.us') ? event.targetId : sanitizePhone(event.targetId);
+
+            await sendMessage(targetId, event.text, mediaBuffer, filename);
+            console.log(`Evento enviado com sucesso para ${targetId}`);
+
+            event.sent = true;
+            dbChanged = true;
+
+            // Apagar a imagem após envio com sucesso
+            if (event.imagePath && fs.existsSync(event.imagePath)) {
+                fs.unlinkSync(event.imagePath);
+                event.imagePath = null;
+            }
+
+        } catch (err) {
+            console.error(`Falha ao enviar evento para ${event.targetId}:`, err.message);
+        }
+    }
+
+    if (dbChanged) {
+        // Recarrega o DB caso tenha sido modificado em paralelo e atualiza os status
+        const latestDb = getDB();
+        pendingEvents.forEach(pe => {
+            const ev = latestDb.calendar.find(e => e.id === pe.id);
+            if (ev) {
+                ev.sent = pe.sent;
+                ev.imagePath = pe.imagePath;
+            }
+        });
+        saveDB(latestDb);
+    }
+}
+
 // Dynamic Scheduling Logic
 let morningJob = null;
 let nightJob = null;
+let calendarJob = null;
 
 function scheduleAllJobs() {
     const db = getDB();
@@ -246,6 +464,7 @@ function scheduleAllJobs() {
     // Stop existing jobs
     if (morningJob) morningJob.stop();
     if (nightJob) nightJob.stop();
+    if (calendarJob) calendarJob.stop();
 
     // Parse times (assuming HH:mm format)
     const [mHour, mMin] = morningTime.split(':');
@@ -260,6 +479,11 @@ function scheduleAllJobs() {
     nightJob = cron.schedule(`${nMin} ${nHour} * * *`, () => {
         console.log(`Cron: Iniciando automação da noite agendada para as ${nightTime}`);
         runAutomation('night');
+    });
+
+    // Run calendar checker every minute
+    calendarJob = cron.schedule('* * * * *', () => {
+        runCalendarEvents();
     });
 
     console.log(`Hora atual do servidor: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);

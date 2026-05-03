@@ -162,17 +162,25 @@ async function sendMessage(username, to, text, mediaBuffer = null, filename = 'i
     
     if (!chatId.includes('@g.us')) {
         try {
-            const numberDetails = await client.getNumberId(to);
+            const cleanNumber = to.replace('@c.us', '');
+            const numberDetails = await client.getNumberId(cleanNumber);
             if (numberDetails) {
                 chatId = numberDetails._serialized;
+            } else {
+                console.warn(`[${username}] Aviso: Número ${cleanNumber} não parece ter WhatsApp ativo.`);
             }
         } catch (e) {
-            console.warn(`[${username}] Aviso: Não foi possível validar o número ${to}, tentando envio direto.`);
+            console.warn(`[${username}] Aviso: Falha ao validar número ${to} (${e.message}). Tentando envio direto...`);
         }
     }
 
     if (mediaBuffer) {
-        const media = new MessageMedia('image/png', mediaBuffer.toString('base64'), filename);
+        let mime = 'image/jpeg';
+        if (filename.toLowerCase().endsWith('.png')) mime = 'image/png';
+        else if (filename.toLowerCase().endsWith('.mp4')) mime = 'video/mp4';
+        else if (filename.toLowerCase().endsWith('.gif')) mime = 'image/gif';
+
+        const media = new MessageMedia(mime, mediaBuffer.toString('base64'), filename);
         return await client.sendMessage(chatId, media, { caption: text });
     } else {
         return await client.sendMessage(chatId, text);

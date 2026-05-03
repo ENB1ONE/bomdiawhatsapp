@@ -50,10 +50,14 @@ function initWhatsAppForUser(username) {
                 '--disable-accelerated-2d-canvas',
                 '--no-first-run',
                 '--no-zygote',
+                '--single-process',
                 '--disable-gpu',
                 '--disable-extensions',
+                '--disable-software-rasterizer',
+                '--disable-background-networking',
                 '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-site-isolation-trials'
+                '--disable-site-isolation-trials',
+                '--mute-audio'
             ]
         }
     });
@@ -86,14 +90,28 @@ function initWhatsAppForUser(username) {
     });
 
     client.on('disconnected', (reason) => {
-        console.log(`[${username}] WhatsApp Disconnected`, reason);
+        console.log(`[${username}] WhatsApp Disconnected: ${reason}`);
         isReadyStatus[username] = false;
+        
+        if (reason === 'LOGOUT' || reason === 'NAVIGATION') {
+            console.log(`[${username}] Sessão inválida ou deslogada. Limpando credenciais...`);
+            if (fs.existsSync(dataPath)) {
+                try {
+                    fs.rmSync(dataPath, { recursive: true, force: true });
+                } catch(e) {
+                    console.error(`[${username}] Erro ao apagar pasta de sessão:`, e);
+                }
+            }
+        }
+
         setTimeout(async () => {
             console.log(`[${username}] Derrubando processo para reiniciar de forma limpa...`);
-            try { await client.destroy(); } catch (e) {}
-            delete clients[username]; // Remove para que possa ser reiniciado
-            initWhatsAppForUser(username); // Tenta reiniciar automaticamente a sessão
-        }, 3000);
+            try { 
+                if (clients[username]) await clients[username].destroy(); 
+            } catch (e) {} // Ignorar TargetCloseError durante o destroy
+            delete clients[username];
+            initWhatsAppForUser(username);
+        }, 5000);
     });
 
     const startClient = async (retries = 3) => {

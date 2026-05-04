@@ -107,7 +107,7 @@ async function generateImage(prompt, type = "morning") {
         // Usamos Pollinations.ai como motor principal de imagem (mais rápido e sem restrições de chave)
         try {
             console.log("Gerando imagem via Pollinations.ai...");
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=800&height=800&nologo=true&seed=${Date.now()}`;
             
             const imageRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 45000 });
             

@@ -224,16 +224,27 @@ async function sendMessage(username, to, text, mediaBuffer = null, filename = 'i
         chatId = to.replace('@c.us', '') + '@c.us';
     }
 
-    if (mediaBuffer) {
-        let mime = 'image/jpeg';
-        if (filename.toLowerCase().endsWith('.png')) mime = 'image/png';
-        else if (filename.toLowerCase().endsWith('.mp4')) mime = 'video/mp4';
-        else if (filename.toLowerCase().endsWith('.gif')) mime = 'image/gif';
+    try {
+        if (mediaBuffer) {
+            let mime = 'image/jpeg';
+            if (filename.toLowerCase().endsWith('.png')) mime = 'image/png';
+            else if (filename.toLowerCase().endsWith('.mp4')) mime = 'video/mp4';
+            else if (filename.toLowerCase().endsWith('.gif')) mime = 'image/gif';
 
-        const media = new MessageMedia(mime, mediaBuffer.toString('base64'), filename);
-        return await client.sendMessage(chatId, media, { caption: text });
-    } else {
-        return await client.sendMessage(chatId, text);
+            const media = new MessageMedia(mime, mediaBuffer.toString('base64'), filename);
+            return await client.sendMessage(chatId, media, { caption: text });
+        } else {
+            return await client.sendMessage(chatId, text);
+        }
+    } catch (error) {
+        const errStr = error.message ? error.message : String(error);
+        if (errStr.includes('Execution context was destroyed') || errStr.includes('Target closed')) {
+            console.error(`[${username}] CRASH NO CHROMIUM detectado no envio. Forçando reinicialização do cliente...`);
+            logToServer(username, 'error', 'Crash do WhatsApp Web detectado no envio. Reiniciando...', { error: errStr });
+            destroyClient(username);
+            setTimeout(() => initWhatsAppForUser(username), 5000);
+        }
+        throw error;
     }
 }
 

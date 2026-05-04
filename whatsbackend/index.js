@@ -326,17 +326,25 @@ app.delete('/calendar/:id', (req, res) => {
 });
 
 app.get('/groups', async (req, res) => {
+    const db = getDB();
+    const userNode = getUserNode(db, req.user.username);
     try {
         const client = getClient(req.user.username);
-        if (!client) return res.status(500).json({ error: "WhatsApp cliente não inicializado" });
+        if (!client) {
+            return res.json(userNode.groups || []);
+        }
         const chats = await client.getChats();
         const groups = chats.filter(chat => chat.isGroup).map(group => ({
             id: group.id._serialized,
             name: group.name
         }));
+        
+        userNode.groups = groups;
+        saveDB(db);
+        
         res.json(groups);
     } catch (err) {
-        res.status(500).json({ error: "Erro ao buscar grupos", details: err.message });
+        res.json(userNode.groups || []);
     }
 });
 
@@ -346,6 +354,9 @@ app.get('/logs', (req, res) => {
 });
 
 function sanitizePhone(phone) {
+    if (typeof phone !== 'string') return phone;
+    if (phone.endsWith('@g.us')) return phone.trim(); // Aceita ID de grupo intacto
+    
     let cleaned = phone.replace(/\D/g, ''); 
     if (cleaned.length === 11 && !cleaned.startsWith('55')) cleaned = '55' + cleaned; 
     else if (cleaned.length === 10 && !cleaned.startsWith('55')) cleaned = '55' + cleaned; 

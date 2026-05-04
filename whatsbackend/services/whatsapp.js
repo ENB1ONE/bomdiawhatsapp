@@ -100,7 +100,16 @@ function initWhatsAppForUser(username, retries = 3) {
                 '--disable-background-networking',
                 '--disable-features=IsolateOrigins,site-per-process',
                 '--disable-site-isolation-trials',
-                '--mute-audio'
+                '--mute-audio',
+                '--blink-settings=imagesEnabled=false',
+                '--disable-remote-fonts',
+                '--disable-webgl',
+                '--disable-3d-apis',
+                '--disable-sync',
+                '--disable-client-side-phishing-detection',
+                '--disable-component-update',
+                '--disable-default-apps',
+                '--disable-ipc-flooding-protection'
             ]
         }
     });

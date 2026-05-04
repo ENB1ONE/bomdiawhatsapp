@@ -124,7 +124,11 @@ function initWhatsAppForUser(username, retries = 3) {
             page.on('request', (req) => {
                 const rt = req.resourceType();
                 if (['image', 'media'].includes(rt)) {
-                    req.abort();
+                    if (req.url().startsWith('blob:')) {
+                        req.continue(); // Permite blob URLs internos (usados para gerar thumbnail ao enviar imagens)
+                    } else {
+                        req.abort();
+                    }
                 } else if (req.url().includes('/pp?e=') || req.url().includes('/status')) {
                     req.abort(); // Bloqueia fotos de perfil e mídias de status
                 } else {
@@ -267,6 +271,9 @@ async function sendMessage(username, to, text, mediaBuffer = null, filename = 'i
     }
 
     try {
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout ao enviar mensagem (45s)')), 45000));
+        let sendPromise;
+
         if (mediaBuffer) {
             let mime = 'image/jpeg';
             if (filename.toLowerCase().endsWith('.png')) mime = 'image/png';
@@ -274,10 +281,13 @@ async function sendMessage(username, to, text, mediaBuffer = null, filename = 'i
             else if (filename.toLowerCase().endsWith('.gif')) mime = 'image/gif';
 
             const media = new MessageMedia(mime, mediaBuffer.toString('base64'), filename);
-            return await client.sendMessage(chatId, media, { caption: text });
+            sendPromise = client.sendMessage(chatId, media, { caption: text || '' });
         } else {
-            return await client.sendMessage(chatId, text);
+            if (!text || text.trim() === '') throw new Error('Texto vazio e sem mídia anexa.');
+            sendPromise = client.sendMessage(chatId, text);
         }
+
+        return await Promise.race([sendPromise, timeoutPromise]);
     } catch (error) {
         const errStr = error.message ? error.message : String(error);
         if (errStr.includes('Execution context was destroyed') || errStr.includes('Target closed')) {

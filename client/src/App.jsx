@@ -573,7 +573,7 @@ function App() {
                          </div>
                      )}
 
-                     <div className="form-group"><label>{eventForm.type === 'custom' ? 'Texto Especial' : 'Substituir Texto da IA (Deixe vazio para usar IA)'}</label><textarea rows="3" required={eventForm.type === 'custom'} value={eventForm.text} onChange={e => setEventForm({...eventForm, text: e.target.value})} /></div>
+                     <div className="form-group"><label>{eventForm.type === 'custom' ? 'Texto Especial (Opcional)' : 'Substituir Texto da IA (Deixe vazio para usar IA)'}</label><textarea rows="3" value={eventForm.text} onChange={e => setEventForm({...eventForm, text: e.target.value})} /></div>
                      <div className="form-group"><label>Mídia (Opcional) - Imagem ou Vídeo</label><input type="file" accept="image/*,video/*" onChange={e => setEventForm({...eventForm, image: e.target.files[0]})} /></div>
                      
                      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>

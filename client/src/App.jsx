@@ -416,7 +416,7 @@ function App() {
             </div>
           </div>
           );
-        })}
+        })()}
 
         {activeTab === 'users' && userRole === 'admin' && (
           <div className="animate-in">

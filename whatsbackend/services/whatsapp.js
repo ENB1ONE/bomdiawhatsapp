@@ -123,7 +123,7 @@ function initWhatsAppForUser(username, retries = 3) {
             await page.setRequestInterception(true);
             page.on('request', (req) => {
                 const rt = req.resourceType();
-                if (['image', 'media', 'font', 'stylesheet'].includes(rt)) {
+                if (['image', 'media'].includes(rt)) {
                     req.abort();
                 } else if (req.url().includes('/pp?e=') || req.url().includes('/status')) {
                     req.abort(); // Bloqueia fotos de perfil e mídias de status
@@ -131,7 +131,7 @@ function initWhatsAppForUser(username, retries = 3) {
                     req.continue();
                 }
             });
-            console.log(`[${username}] Otimização extrema ativada: Tráfego de imagens e estilos bloqueado.`);
+            console.log(`[${username}] Otimização extrema ativada: Mídias bloqueadas.`);
         } catch(e) {}
     };
 

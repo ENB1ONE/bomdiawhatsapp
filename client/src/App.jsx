@@ -588,26 +588,54 @@ function App() {
         )}
 
         {activeTab === 'contacts' && (
-          <div className="animate-in">
-            <section className="glass-card" style={{ marginBottom: '2rem' }}>
-              <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>
-              <form onSubmit={addContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
-                <div><label>Nome</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required /></div>
-                <div><label>WhatsApp (ou ID @g.us)</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required placeholder="Ex: 551199999999 ou 123-456@g.us" /></div>
-                <button type="submit" className="btn btn-primary">Salvar</button>
-              </form>
-            </section>
-            <section className="glass-card">
-              <div className="card-header"><h2><Users size={18} /> Lista ({contacts?.length || 0})</h2></div>
-              <div className="contact-list">
-                {Array.isArray(contacts) && contacts.map(c => (
-                  <div key={c.phone} className="contact-row">
-                    <div><p style={{ fontWeight: 700 }}>{c.name}</p><p style={{ fontSize: '0.8rem', opacity: 0.5 }}>{c.phone}</p></div>
-                    <button onClick={() => removeContact(c.phone)} className="delete-btn"><Trash2 size={16} /></button>
-                  </div>
-                ))}
-              </div>
-            </section>
+          <div className="content-grid animate-in">
+            <div className="col-8">
+              <section className="glass-card" style={{ marginBottom: '2rem' }}>
+                <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>
+                <form onSubmit={addContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+                  <div><label>Nome</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required /></div>
+                  <div><label>WhatsApp (ou ID @g.us)</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required placeholder="Ex: 551199999999 ou 123-456@g.us" /></div>
+                  <button type="submit" className="btn btn-primary">Salvar</button>
+                </form>
+              </section>
+              <section className="glass-card">
+                <div className="card-header"><h2><Users size={18} /> Lista ({contacts?.length || 0})</h2></div>
+                <div className="contact-list">
+                  {Array.isArray(contacts) && contacts.map(c => (
+                    <div key={c.phone} className="contact-row">
+                      <div><p style={{ fontWeight: 700 }}>{c.name}</p><p style={{ fontSize: '0.8rem', opacity: 0.5 }}>{c.phone}</p></div>
+                      <button onClick={() => removeContact(c.phone)} className="delete-btn"><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+            
+            <div className="col-4">
+              <section className="glass-card">
+                <div className="card-header"><h2>Grupos Salvos</h2></div>
+                <p style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '1rem' }}>
+                  Se o grupo não aparecer aqui, aguarde o sistema conectar e clique em atualizar. Clique em Copiar para jogar o ID no formulário ao lado.
+                </p>
+                <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                  {groupsList.length === 0 ? (
+                      <div style={{ opacity: 0.5, fontSize: '0.8rem', textAlign: 'center', padding: '1rem' }}>Nenhum grupo listado no cache.</div>
+                  ) : groupsList.map(g => (
+                      <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                        <div style={{ overflow: 'hidden', paddingRight: '10px' }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={g.name}>{g.name}</div>
+                          <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>{g.id}</div>
+                        </div>
+                        <button className="btn btn-outline" style={{ padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => {
+                          setNewContact({ name: g.name, phone: g.id });
+                          window.scrollTo(0,0);
+                        }}>Copiar</button>
+                      </div>
+                  ))}
+                </div>
+                <button className="btn btn-outline" style={{ width: '100%', marginTop: '1rem' }} onClick={fetchData}>Atualizar Lista</button>
+              </section>
+            </div>
           </div>
         )}
 

@@ -6,6 +6,29 @@ const clients = {};
 const qrCodes = {};
 const isReadyStatus = {};
 
+function logToServer(username, status, summary, details = {}) {
+    const dbPath = path.join(process.cwd(), 'database.json');
+    if (!fs.existsSync(dbPath)) return;
+    try {
+        const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+        const user = db.users.find(u => u.username === username);
+        if (user) {
+            if (!user.logs) user.logs = [];
+            user.logs.unshift({
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                type: 'server',
+                status: status,
+                details: { summary, ...details }
+            });
+            if (user.logs.length > 100) user.logs = user.logs.slice(0, 100);
+            fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+        }
+    } catch(e) {
+        console.error(`[${username}] Erro ao salvar log de servidor no BD:`, e.message);
+    }
+}
+
 // Função auxiliar para inicializar um único cliente
 function initWhatsAppForUser(username, retries = 3) {
     if (clients[username]) {
@@ -94,6 +117,7 @@ function initWhatsAppForUser(username, retries = 3) {
         console.log(`[${username}] WhatsApp Client is ready!`);
         isReadyStatus[username] = true;
         qrCodes[username] = null;
+        logToServer(username, 'success', 'Sessão iniciada e pronta para envio.');
     });
 
     client.on('authenticated', () => {
@@ -103,6 +127,7 @@ function initWhatsAppForUser(username, retries = 3) {
     client.on('auth_failure', (msg) => {
         console.error(`[${username}] WhatsApp Auth failure`, msg);
         isReadyStatus[username] = false;
+        logToServer(username, 'error', 'Falha de Autenticação (Sessão corrompida)', { error: msg });
         if (fs.existsSync(dataPath)) {
             console.log(`[${username}] Removendo cache corrompido...`);
             fs.rmSync(dataPath, { recursive: true, force: true });
@@ -115,6 +140,7 @@ function initWhatsAppForUser(username, retries = 3) {
         
         if (reason === 'LOGOUT' || reason === 'NAVIGATION') {
             console.log(`[${username}] Sessão inválida ou deslogada. Limpando credenciais...`);
+            logToServer(username, 'warning', `Desconectado do Celular: ${reason}`, { reason });
             if (fs.existsSync(dataPath)) {
                 try {
                     fs.rmSync(dataPath, { recursive: true, force: true });
@@ -122,6 +148,8 @@ function initWhatsAppForUser(username, retries = 3) {
                     console.error(`[${username}] Erro ao apagar pasta de sessão:`, e);
                 }
             }
+        } else {
+            logToServer(username, 'warning', `Queda de Conexão: ${reason}`, { reason });
         }
 
         setTimeout(async () => {
@@ -252,8 +280,13 @@ module.exports = {
 
 // Intercepta falhas de timeout que o whatsapp-web.js lança globalmente
 process.on('unhandledRejection', (reason, promise) => {
-    if (reason && reason.toString().includes('auth timeout')) {
+    const reasonStr = reason ? reason.toString() : '';
+    if (reasonStr.includes('auth timeout')) {
         console.error('Falha crítica de Auth Timeout global detectada. Reiniciando todo o contêiner...');
         process.exit(1);
+    } else if (reasonStr.includes('Target closed') || reasonStr.includes('Protocol error')) {
+        console.error('Ignorando erro de protocolo do Puppeteer em background (comum após logout):', reasonStr);
+    } else {
+        console.error('Unhandled Rejection:', reason);
     }
 });

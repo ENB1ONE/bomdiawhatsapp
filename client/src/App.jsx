@@ -298,9 +298,65 @@ function App() {
           </div>
         </header>
 
-        {activeTab === 'dashboard' && (
+        {activeTab === 'dashboard' && (() => {
+          const allHistory = [
+            ...(Array.isArray(logs) ? logs : []),
+            ...(Array.isArray(calendarEvents) ? calendarEvents.map(e => ({
+                id: e.id,
+                type: 'calendar',
+                status: e.sent ? 'success' : 'pending',
+                timestamp: `${e.date}T${e.time}:00`,
+                details: { summary: `Agendamento Extra: ${e.targetId}`, text: e.text }
+            })) : [])
+          ].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+
+          return (
           <div className="content-grid animate-in">
             <div className="col-8">
+
+
+              <section className="glass-card" style={{ padding: '1.5rem' }}>
+                <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><Clock size={18} /> Histórico Recente</h2></div>
+                <div className="compact-log-list">
+                  {allHistory.slice(0, 15).map(log => (
+                    <div key={log.id} style={{ marginBottom: '0.5rem' }}>
+                      <div className={`log-item ${expandedLogId === log.id ? 'active' : ''}`} onClick={() => toggleLog(log.id)}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div className={`dot ${log.status === 'success' ? 'success' : (log.status === 'warning' ? 'warning' : (log.status === 'pending' ? 'pending' : 'danger'))}`} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{log.type === 'morning' ? 'Envio Manhã' : (log.type === 'night' ? 'Envio Noite' : (log.type === 'server' ? 'Servidor' : 'Agendamento'))}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <span style={{ fontSize: '0.75rem', opacity: 0.4 }}>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
+                          {expandedLogId === log.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </div>
+                      </div>
+                      {expandedLogId === log.id && (
+                        <div className="log-expand-area animate-in">
+                           <div className="detail-frame" style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
+                             {typeof log.details === 'string' ? log.details : (log.details?.summary || 'Sem detalhes.')}
+                             {log.type === 'calendar' && log.details?.text && <div style={{marginTop: '0.5rem', opacity: 0.8}}>Texto: {log.details.text}</div>}
+                           </div>
+                           {Array.isArray(log.details?.successes) && log.details.successes.length > 0 && (
+                             <div className="success-tag-grid">
+                               {log.details.successes.map((s, idx) => <span key={idx} className="success-tag">{s.name || s.phone || 'Contato'}</span>)}
+                             </div>
+                           )}
+                           {log.type === 'server' && log.details?.error && (
+                             <div style={{ color: 'var(--danger-color)', fontSize: '0.75rem', marginTop: '0.5rem' }}>Erro: {log.details.error}</div>
+                           )}
+                           {log.type === 'server' && log.details?.reason && (
+                             <div style={{ color: 'var(--warning-color)', fontSize: '0.75rem', marginTop: '0.5rem' }}>Razão: {log.details.reason}</div>
+                           )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {allHistory.length === 0 && <p style={{ textAlign: 'center', opacity: 0.4, padding: '2rem' }}>Nenhum registro.</p>}
+                </div>
+              </section>
+            </div>
+
+            <div className="col-4">
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header" style={{ marginBottom: status?.isReady && !status?.qrCodeData ? '0' : '1.5rem' }}>
                   <h2><Smartphone size={18} /> Instância</h2>
@@ -316,41 +372,6 @@ function App() {
                 )}
               </section>
 
-              <section className="glass-card" style={{ padding: '1.5rem' }}>
-                <div className="card-header" style={{ marginBottom: '1.5rem' }}><h2><Clock size={18} /> Histórico Recente</h2></div>
-                <div className="compact-log-list">
-                  {Array.isArray(logs) && logs.slice(0, 8).map(log => (
-                    <div key={log.id} style={{ marginBottom: '0.5rem' }}>
-                      <div className={`log-item ${expandedLogId === log.id ? 'active' : ''}`} onClick={() => toggleLog(log.id)}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <div className={`dot ${log.status === 'success' ? 'success' : 'danger'}`} />
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{log.type === 'morning' ? 'Manhã' : 'Noite'}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <span style={{ fontSize: '0.75rem', opacity: 0.4 }}>{log.timestamp ? new Date(log.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-'}</span>
-                          {expandedLogId === log.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </div>
-                      </div>
-                      {expandedLogId === log.id && (
-                        <div className="log-expand-area animate-in">
-                           <div className="detail-frame" style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
-                             {typeof log.details === 'string' ? log.details : log.details?.summary || 'Sem detalhes.'}
-                           </div>
-                           {Array.isArray(log.details?.successes) && log.details.successes.length > 0 && (
-                             <div className="success-tag-grid">
-                               {log.details.successes.map((s, idx) => <span key={idx} className="success-tag">{s.name || s.phone || 'Contato'}</span>)}
-                             </div>
-                           )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {(!logs || logs.length === 0) && <p style={{ textAlign: 'center', opacity: 0.4, padding: '2rem' }}>Nenhum registro.</p>}
-                </div>
-              </section>
-            </div>
-
-            <div className="col-4">
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="card-header"><h2><Globe size={18} /> Automação Global</h2></div>
                 <div style={{ padding: '1rem 0', textAlign: 'center' }}>
@@ -394,7 +415,8 @@ function App() {
               </section>
             </div>
           </div>
-        )}
+          );
+        })}
 
         {activeTab === 'users' && userRole === 'admin' && (
           <div className="animate-in">

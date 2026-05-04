@@ -124,23 +124,30 @@ function initWhatsAppForUser(username, retries = 3) {
         console.log(`[${username}] WhatsApp Authenticated`);
     });
 
-    client.on('auth_failure', (msg) => {
+    client.on('auth_failure', async (msg) => {
         console.error(`[${username}] WhatsApp Auth failure`, msg);
         isReadyStatus[username] = false;
         logToServer(username, 'error', 'Falha de Autenticação (Sessão corrompida)', { error: msg });
+        
+        try { if (clients[username]) await clients[username].destroy(); } catch (e) {}
+        
         if (fs.existsSync(dataPath)) {
             console.log(`[${username}] Removendo cache corrompido...`);
-            fs.rmSync(dataPath, { recursive: true, force: true });
+            try { fs.rmSync(dataPath, { recursive: true, force: true }); } catch(e) {}
         }
     });
 
-    client.on('disconnected', (reason) => {
+    client.on('disconnected', async (reason) => {
         console.log(`[${username}] WhatsApp Disconnected: ${reason}`);
         isReadyStatus[username] = false;
         
         if (reason === 'LOGOUT' || reason === 'NAVIGATION') {
             console.log(`[${username}] Sessão inválida ou deslogada. Limpando credenciais...`);
             logToServer(username, 'warning', `Desconectado do Celular: ${reason}`, { reason });
+            
+            console.log(`[${username}] Derrubando processo Chromium antes de limpar...`);
+            try { if (clients[username]) await clients[username].destroy(); } catch (e) {}
+            
             if (fs.existsSync(dataPath)) {
                 try {
                     fs.rmSync(dataPath, { recursive: true, force: true });
@@ -150,26 +157,27 @@ function initWhatsAppForUser(username, retries = 3) {
             }
         } else {
             logToServer(username, 'warning', `Queda de Conexão: ${reason}`, { reason });
+            try { if (clients[username]) await clients[username].destroy(); } catch (e) {}
         }
 
-        setTimeout(async () => {
-            console.log(`[${username}] Derrubando processo para reiniciar de forma limpa...`);
-            try { 
-                if (clients[username]) await clients[username].destroy(); 
-            } catch (e) {} 
-            delete clients[username];
-            
-            // Só reinicia se o usuário ainda constar no sistema (não foi deletado do app)
-            const dbPath = path.join(process.cwd(), 'database.json');
-            let userExists = true;
-            if (fs.existsSync(dbPath)) {
+        delete clients[username];
+        
+        // Só reinicia se o usuário ainda constar no sistema (não foi deletado do app)
+        const dbPath = path.join(process.cwd(), 'database.json');
+        let userExists = true;
+        if (fs.existsSync(dbPath)) {
+            try {
                 const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
                 if (!db.users || !db.users.find(u => u.username === username)) userExists = false;
-            }
-            if (userExists) {
-                initWhatsAppForUser(username);
-            }
-        }, 5000);
+            } catch(e) {}
+        }
+        
+        if (userExists) {
+            console.log(`[${username}] Agendando reinício limpo em 5 segundos...`);
+            setTimeout(() => initWhatsAppForUser(username), 5000);
+        } else {
+            console.log(`[${username}] Usuário não existe mais no banco. Sessão totalmente encerrada.`);
+        }
     });
 
     const startClient = async () => {

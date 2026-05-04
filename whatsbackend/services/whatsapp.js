@@ -7,7 +7,7 @@ const qrCodes = {};
 const isReadyStatus = {};
 
 // Função auxiliar para inicializar um único cliente
-function initWhatsAppForUser(username) {
+function initWhatsAppForUser(username, retries = 3) {
     if (clients[username]) {
         console.log(`[${username}] Cliente já inicializado ou em processo.`);
         return;
@@ -144,16 +144,18 @@ function initWhatsAppForUser(username) {
         }, 5000);
     });
 
-    const startClient = async (retries = 3) => {
+    const startClient = async () => {
         try {
             await client.initialize();
         } catch (err) {
             console.error(`[${username}] Erro ao inicializar (Tentativas: ${retries}):`, err.message);
+            try { await client.destroy(); } catch(e) {}
+            delete clients[username];
+            
             if (retries > 0) {
-                setTimeout(() => startClient(retries - 1), 10000);
+                setTimeout(() => initWhatsAppForUser(username, retries - 1), 10000);
             } else {
-                console.error(`[${username}] Falha fatal. Destruindo cliente.`);
-                delete clients[username];
+                console.error(`[${username}] Falha fatal. Limpando cliente da memória.`);
             }
         }
     };

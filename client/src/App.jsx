@@ -593,7 +593,7 @@ function App() {
               <div className="card-header"><h2><Plus size={18} /> Novo Contato</h2></div>
               <form onSubmit={addContact} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
                 <div><label>Nome</label><input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} required /></div>
-                <div><label>WhatsApp</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required /></div>
+                <div><label>WhatsApp (ou ID @g.us)</label><input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} required placeholder="Ex: 551199999999 ou 123-456@g.us" /></div>
                 <button type="submit" className="btn btn-primary">Salvar</button>
               </form>
             </section>

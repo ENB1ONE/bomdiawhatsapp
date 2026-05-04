@@ -39,6 +39,7 @@ function App() {
   const [expandedLogId, setExpandedLogId] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [calendarEvents, setCalendarEvents] = useState([]);
+  const [dailyOverrides, setDailyOverrides] = useState({});
   const [usersList, setUsersList] = useState([]);
   const [groupsList, setGroupsList] = useState([]);
   const [selectedTestContact, setSelectedTestContact] = useState('');
@@ -57,7 +58,7 @@ function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState('');
-  const [eventForm, setEventForm] = useState({ time: '10:00', targetId: '', text: '', image: null });
+  const [eventForm, setEventForm] = useState({ type: 'custom', time: '10:00', targetId: '', text: '', image: null, targetIds: [] });
 
   const API_BASE = settings?.apiUrl || 'https://api.servicesbr.duckdns.org';
 
@@ -151,7 +152,8 @@ function App() {
       setContacts(Array.isArray(contactsRes.data) ? contactsRes.data : []);
       if (settingsRes.data) setSettings(prev => ({ ...prev, ...settingsRes.data }));
       setLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
-      setCalendarEvents(Array.isArray(calendarRes.data) ? calendarRes.data : []);
+      setCalendarEvents(Array.isArray(calendarRes.data?.calendar) ? calendarRes.data.calendar : []);
+      setDailyOverrides(calendarRes.data?.dailyOverrides || {});
       setGroupsList(Array.isArray(groupsRes.data) ? groupsRes.data : []);
       
       if (role === 'admin' && usersRes && Array.isArray(usersRes.data)) {
@@ -451,11 +453,17 @@ function App() {
                       // Check for fixed brazilian holidays
                       const isHoliday = ['01-01','21-04','01-05','07-09','12-10','02-11','15-11','25-12'].includes(`${String(day).padStart(2, '0')}-${String(currentDate.getMonth()+1).padStart(2, '0')}`);
                       const dayEvents = calendarEvents.filter(e => e.date === dateStr);
+                      const hasMorningOverride = dailyOverrides[dateStr]?.morning;
+                      const hasNightOverride = dailyOverrides[dateStr]?.night;
                       
                       return (
-                        <div key={day} onClick={() => { setSelectedDateStr(dateStr); setShowEventModal(true); }} style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer', background: isHoliday ? 'rgba(255,100,100,0.1)' : 'rgba(255,255,255,0.05)' }}>
-                           <div style={{ fontWeight: 'bold', color: isHoliday ? '#ff6b6b' : 'inherit' }}>{day}</div>
-                           {dayEvents.length > 0 && <div style={{ fontSize: '0.7rem', marginTop: '0.25rem', color: 'var(--accent-color)' }}>{dayEvents.length} agendado(s)</div>}
+                        <div key={day} style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', background: isHoliday ? 'rgba(255,100,100,0.1)' : 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                           <div style={{ fontWeight: 'bold', color: isHoliday ? '#ff6b6b' : 'inherit', marginBottom: '0.5rem' }}>{day}</div>
+                           <div style={{ fontSize: '0.7rem', display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
+                              <button className="btn btn-outline" style={{ padding: '4px', fontSize: '0.7rem', borderColor: hasMorningOverride ? 'var(--accent-color)' : 'transparent', background: 'rgba(255,255,255,0.05)' }} onClick={() => { setSelectedDateStr(dateStr); setEventForm({ type: 'morning', time: '', targetId: '', text: hasMorningOverride?.text || '', targetIds: hasMorningOverride?.targetIds || contacts.map(c=>c.phone), image: null }); setShowEventModal(true); }}>☀️ Bom dia</button>
+                              <button className="btn btn-outline" style={{ padding: '4px', fontSize: '0.7rem', borderColor: hasNightOverride ? 'var(--accent-secondary)' : 'transparent', background: 'rgba(255,255,255,0.05)' }} onClick={() => { setSelectedDateStr(dateStr); setEventForm({ type: 'night', time: '', targetId: '', text: hasNightOverride?.text || '', targetIds: hasNightOverride?.targetIds || contacts.map(c=>c.phone), image: null }); setShowEventModal(true); }}>🌙 Boa noite</button>
+                              <button className="btn btn-outline" style={{ padding: '4px', fontSize: '0.7rem', background: 'rgba(255,255,255,0.05)' }} onClick={() => { setSelectedDateStr(dateStr); setEventForm({ type: 'custom', time: '10:00', targetId: '', text: '', targetIds: [], image: null }); setShowEventModal(true); }}>+ Extra ({dayEvents.length})</button>
+                           </div>
                         </div>
                       )
                    })}
@@ -481,43 +489,70 @@ function App() {
                </div>
              </section>
 
-             {showEventModal && (
+              {showEventModal && (
                <div className="mobile-backdrop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-                 <div className="glass-card animate-in" style={{ width: '100%', maxWidth: '500px' }}>
-                   <h2>Agendar Envio: {selectedDateStr}</h2>
+                 <div className="glass-card animate-in" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+                   <h2>{eventForm.type === 'custom' ? `Agendar Extra: ${selectedDateStr}` : `Editar ${eventForm.type === 'morning' ? 'Bom Dia' : 'Boa Noite'} do dia ${selectedDateStr}`}</h2>
                    <form onSubmit={async (e) => {
                      e.preventDefault();
                      try {
                        setLoading(true);
                        const formData = new FormData();
                        formData.append('date', selectedDateStr);
-                       formData.append('time', eventForm.time);
-                       formData.append('targetId', eventForm.targetId);
+                       formData.append('type', eventForm.type);
                        formData.append('text', eventForm.text);
                        if (eventForm.image) formData.append('image', eventForm.image);
 
-                       await axios.post(`${API_BASE}/calendar`, formData, { headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' } });
-                       alert('Agendado com sucesso!');
+                       if (eventForm.type === 'custom') {
+                           formData.append('time', eventForm.time);
+                           formData.append('targetId', eventForm.targetId);
+                           await axios.post(`${API_BASE}/calendar`, formData, { headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' } });
+                       } else {
+                           formData.append('targetIds', JSON.stringify(eventForm.targetIds));
+                           await axios.post(`${API_BASE}/calendar/override`, formData, { headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' } });
+                       }
+                       
+                       alert('Salvo com sucesso!');
                        setShowEventModal(false);
                        fetchData();
-                     } catch(err) { alert('Erro ao agendar'); } finally { setLoading(false); }
+                     } catch(err) { alert('Erro ao salvar'); } finally { setLoading(false); }
                    }}>
-                     <div className="form-group"><label>Horário (HH:MM)</label><input type="time" required value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} /></div>
-                     
-                     <div className="form-group"><label>Destinatário (Contato ou Grupo)</label>
-                       <select required value={eventForm.targetId} onChange={e => setEventForm({...eventForm, targetId: e.target.value})}>
-                         <option value="">Selecione...</option>
-                         <optgroup label="Grupos do WhatsApp">
-                           {groupsList.map(g => <option key={g.id} value={g.id}>{g.name} (Grupo)</option>)}
-                         </optgroup>
-                         <optgroup label="Meus Contatos">
-                           {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
-                         </optgroup>
-                       </select>
-                     </div>
+                     {eventForm.type === 'custom' && (
+                         <>
+                             <div className="form-group"><label>Horário (HH:MM)</label><input type="time" required value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} /></div>
+                             <div className="form-group"><label>Destinatário (Contato ou Grupo)</label>
+                               <select required value={eventForm.targetId} onChange={e => setEventForm({...eventForm, targetId: e.target.value})}>
+                                 <option value="">Selecione...</option>
+                                 <optgroup label="Grupos do WhatsApp">
+                                   {groupsList.map(g => <option key={g.id} value={g.id}>{g.name} (Grupo)</option>)}
+                                 </optgroup>
+                                 <optgroup label="Meus Contatos">
+                                   {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
+                                 </optgroup>
+                               </select>
+                             </div>
+                         </>
+                     )}
 
-                     <div className="form-group"><label>Texto Especial</label><textarea rows="3" required value={eventForm.text} onChange={e => setEventForm({...eventForm, text: e.target.value})} /></div>
-                     <div className="form-group"><label>Imagem (Opcional)</label><input type="file" accept="image/*" onChange={e => setEventForm({...eventForm, image: e.target.files[0]})} /></div>
+                     {eventForm.type !== 'custom' && (
+                         <div className="form-group">
+                             <label>Destinatários deste Envio Específico</label>
+                             <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.1)', padding: '0.5rem', borderRadius: '8px' }}>
+                                 {contacts.map(c => (
+                                     <div key={c.phone} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                         <input type="checkbox" checked={eventForm.targetIds.includes(c.phone)} onChange={(e) => {
+                                             const ids = e.target.checked ? [...eventForm.targetIds, c.phone] : eventForm.targetIds.filter(id => id !== c.phone);
+                                             setEventForm({...eventForm, targetIds: ids});
+                                         }} />
+                                         <span style={{ fontSize: '0.85rem' }}>{c.name} ({c.phone})</span>
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+                     )}
+
+                     <div className="form-group"><label>{eventForm.type === 'custom' ? 'Texto Especial' : 'Substituir Texto da IA (Deixe vazio para usar IA)'}</label><textarea rows="3" required={eventForm.type === 'custom'} value={eventForm.text} onChange={e => setEventForm({...eventForm, text: e.target.value})} /></div>
+                     <div className="form-group"><label>Mídia (Opcional) - Imagem ou Vídeo</label><input type="file" accept="image/*,video/*" onChange={e => setEventForm({...eventForm, image: e.target.files[0]})} /></div>
                      
                      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                        <button type="button" className="btn btn-outline" onClick={() => setShowEventModal(false)} style={{ flex: 1 }}>Cancelar</button>

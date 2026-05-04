@@ -75,6 +75,7 @@ function getDB() {
         if (!u.contacts) { u.contacts = []; changed = true; }
         if (!u.calendar) { u.calendar = []; changed = true; }
         if (!u.logs) { u.logs = []; changed = true; }
+        if (!u.dailyOverrides) { u.dailyOverrides = {}; changed = true; }
         if (!u.settings) {
             u.settings = {
                 morningPrompt: DEFAULT_MORNING,
@@ -178,7 +179,7 @@ app.post('/users', adminOnly, (req, res) => {
     const { username, password, role } = req.body;
     const db = getDB();
     if (db.users.find(u => u.username === username)) return res.status(400).json({ error: "Usuário já existe" });
-    db.users.push({ username, password, role: role || 'user', contacts: [], calendar: [], logs: [], settings: { morningPrompt: DEFAULT_MORNING, nightPrompt: DEFAULT_NIGHT, morningTime: "08:00", nightTime: "20:00", autoSendEnabled: true } });
+    db.users.push({ username, password, role: role || 'user', contacts: [], calendar: [], logs: [], dailyOverrides: {}, settings: { morningPrompt: DEFAULT_MORNING, nightPrompt: DEFAULT_NIGHT, morningTime: "08:00", nightTime: "20:00", autoSendEnabled: true } });
     saveDB(db);
     res.json({ success: true });
 });
@@ -263,7 +264,30 @@ app.put('/settings/toggle-auto', (req, res) => {
 
 app.get('/calendar', (req, res) => {
     const user = getUserNode(getDB(), req.user.username);
-    res.json(user.calendar);
+    res.json({ calendar: user.calendar, dailyOverrides: user.dailyOverrides || {} });
+});
+
+app.post('/calendar/override', upload.single('image'), (req, res) => {
+    const { date, type, text, targetIds } = req.body;
+    const db = getDB();
+    const user = getUserNode(db, req.user.username);
+    if (!user.dailyOverrides) user.dailyOverrides = {};
+    if (!user.dailyOverrides[date]) user.dailyOverrides[date] = {};
+    
+    // Remove override antigo se houver
+    const oldOverride = user.dailyOverrides[date][type];
+    if (oldOverride && oldOverride.imagePath && fs.existsSync(oldOverride.imagePath)) {
+        fs.unlinkSync(oldOverride.imagePath);
+    }
+    
+    user.dailyOverrides[date][type] = {
+        text: text || null,
+        targetIds: targetIds ? JSON.parse(targetIds) : null,
+        imagePath: req.file ? req.file.path : null
+    };
+    
+    saveDB(db);
+    res.json({ success: true, dailyOverrides: user.dailyOverrides });
 });
 
 app.post('/calendar', upload.single('image'), (req, res) => {
@@ -351,13 +375,24 @@ async function runAutomationForUser(userNode, type, targetPhone = null) {
             console.error(`[${username}] IA falhou:`, iaError.message);
         }
         
-        const finalImage = aiContent.image;
-        const finalGreeting = aiContent.caption || greeting;
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
         
+        // Verifica se há um override para hoje
+        const override = (userNode.dailyOverrides && userNode.dailyOverrides[today] && userNode.dailyOverrides[today][type]) || null;
+        
+        let finalImage = aiContent.image;
+        let finalGreeting = aiContent.caption || greeting;
+        
+        if (override) {
+            if (override.text) finalGreeting = override.text;
+            if (override.imagePath && fs.existsSync(override.imagePath)) {
+                finalImage = fs.readFileSync(override.imagePath); // Usa arquivo do override
+            }
+        }
+
         let successes = [];
         let failures = [];
 
-        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
         const contactsWithEventToday = (userNode.calendar || [])
             .filter(e => e.date === today && !e.sent)
             .map(e => e.targetId);
@@ -367,7 +402,13 @@ async function runAutomationForUser(userNode, type, targetPhone = null) {
             : [...userNode.contacts];
 
         if (!targetPhone) {
-            contactsToSend = contactsToSend.filter(c => !contactsWithEventToday.includes(c.phone) && !contactsWithEventToday.includes(sanitizePhone(c.phone)));
+            if (override && override.targetIds && override.targetIds.length > 0) {
+                // Se o override define a lista específica
+                contactsToSend = userNode.contacts.filter(c => override.targetIds.includes(c.phone) || override.targetIds.includes(sanitizePhone(c.phone)));
+            } else {
+                // Comportamento normal
+                contactsToSend = contactsToSend.filter(c => !contactsWithEventToday.includes(c.phone) && !contactsWithEventToday.includes(sanitizePhone(c.phone)));
+            }
         }
 
         if (targetPhone && contactsToSend.length === 0) {
@@ -378,7 +419,13 @@ async function runAutomationForUser(userNode, type, targetPhone = null) {
             try {
                 const cleanPhone = sanitizePhone(contact.phone);
                 console.log(`[${username}] Sending to ${contact.name} (${cleanPhone})...`);
-                await sendMessage(username, cleanPhone, finalGreeting, finalImage);
+                
+                let filename = 'image.png';
+                if (override && override.imagePath) {
+                   filename = path.basename(override.imagePath);
+                }
+                
+                await sendMessage(username, cleanPhone, finalGreeting, finalImage, filename);
                 successes.push({ name: contact.name, phone: cleanPhone });
                 
                 if (contactsToSend.length > 1) {

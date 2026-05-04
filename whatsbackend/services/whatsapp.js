@@ -189,17 +189,9 @@ async function sendMessage(username, to, text, mediaBuffer = null, filename = 'i
     }
     
     if (!chatId.includes('@g.us')) {
-        try {
-            const cleanNumber = to.replace('@c.us', '');
-            const numberDetails = await client.getNumberId(cleanNumber);
-            if (numberDetails) {
-                chatId = numberDetails._serialized;
-            } else {
-                console.warn(`[${username}] Aviso: Número ${cleanNumber} não parece ter WhatsApp ativo.`);
-            }
-        } catch (e) {
-            console.warn(`[${username}] Aviso: Falha ao validar número ${to} (${e.message}). Tentando envio direto...`);
-        }
+        // Ignora o getNumberId que estava causando timeout ("Runtime.callFunctionOn timed out").
+        // O WhatsApp Web aceita o envio direto se o número for válido.
+        chatId = to.replace('@c.us', '') + '@c.us';
     }
 
     if (mediaBuffer) {

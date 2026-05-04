@@ -115,11 +115,35 @@ function initWhatsAppForUser(username, retries = 3) {
     });
 
     clients[username] = client;
+    
+    const optimizePage = async (page) => {
+        if (!page || page.isOptimized) return;
+        try {
+            page.isOptimized = true;
+            await page.setRequestInterception(true);
+            page.on('request', (req) => {
+                const rt = req.resourceType();
+                if (['image', 'media', 'font', 'stylesheet'].includes(rt)) {
+                    req.abort();
+                } else if (req.url().includes('/pp?e=') || req.url().includes('/status')) {
+                    req.abort(); // Bloqueia fotos de perfil e mídias de status
+                } else {
+                    req.continue();
+                }
+            });
+            console.log(`[${username}] Otimização extrema ativada: Tráfego de imagens e estilos bloqueado.`);
+        } catch(e) {}
+    };
+
+    client.on('loading_screen', (percent, message) => {
+        if (client.pupPage) optimizePage(client.pupPage);
+    });
 
     client.on('qr', (qr) => {
         console.log(`[${username}] QR RECEIVED`);
         qrCodes[username] = qr;
         isReadyStatus[username] = false;
+        if (client.pupPage) optimizePage(client.pupPage);
     });
 
     client.on('ready', () => {
@@ -127,6 +151,7 @@ function initWhatsAppForUser(username, retries = 3) {
         isReadyStatus[username] = true;
         qrCodes[username] = null;
         logToServer(username, 'success', 'Sessão iniciada e pronta para envio.');
+        if (client.pupPage) optimizePage(client.pupPage);
     });
 
     client.on('authenticated', () => {

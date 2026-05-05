@@ -523,14 +523,15 @@ function scheduleAllJobs() {
 
     const db = getDB();
     
-    // Cria os cron jobs diários baseados nos horários de CADA usuário
+    // Cria os cron jobs diários baseados nos horários de CADA usuário (DESATIVADO TEMPORARIAMENTE)
+    /*
     for (const user of db.users) {
         if (!user.settings) continue;
         const [mHour, mMin] = user.settings.morningTime.split(':');
         const [nHour, nMin] = user.settings.nightTime.split(':');
 
         cronJobs.push(cron.schedule(`${mMin} ${mHour} * * *`, () => {
-            const currentDb = getDB(); // pega db atualizado
+            const currentDb = getDB();
             const uNode = getUserNode(currentDb, user.username);
             if (uNode) runAutomationForUser(uNode, 'morning');
         }));
@@ -541,6 +542,7 @@ function scheduleAllJobs() {
             if (uNode) runAutomationForUser(uNode, 'night');
         }));
     }
+    */
 
     // Cron Job por minuto para o calendário
     cronJobs.push(cron.schedule('* * * * *', runCalendarEvents));

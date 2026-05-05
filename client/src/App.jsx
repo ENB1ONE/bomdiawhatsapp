@@ -57,6 +57,7 @@ function App() {
   // Estados do Calendário
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showDayModal, setShowDayModal] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState('');
   const [eventForm, setEventForm] = useState({ type: 'custom', time: '10:00', targetId: '', text: '', image: null, targetIds: [] });
 
@@ -479,12 +480,10 @@ function App() {
                       const hasNightOverride = dailyOverrides[dateStr]?.night;
                       
                       return (
-                        <div key={day} style={{ padding: '1rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', background: isHoliday ? 'rgba(255,100,100,0.1)' : 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div key={day} onClick={() => { setSelectedDateStr(dateStr); setShowDayModal(true); }} style={{ cursor: 'pointer', padding: '1rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', background: isHoliday ? 'rgba(255,100,100,0.1)' : 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                            <div style={{ fontWeight: 'bold', color: isHoliday ? '#ff6b6b' : 'inherit', marginBottom: '0.5rem' }}>{day}</div>
                            <div style={{ fontSize: '0.7rem', display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
-                              <button className="btn btn-outline" style={{ padding: '4px', fontSize: '0.7rem', borderColor: hasMorningOverride ? 'var(--accent-color)' : 'transparent', background: 'rgba(255,255,255,0.05)' }} onClick={() => { setSelectedDateStr(dateStr); setEventForm({ type: 'morning', time: '', targetId: '', text: hasMorningOverride?.text || '', targetIds: hasMorningOverride?.targetIds || contacts.map(c=>c.phone), image: null }); setShowEventModal(true); }}>☀️ Bom dia</button>
-                              <button className="btn btn-outline" style={{ padding: '4px', fontSize: '0.7rem', borderColor: hasNightOverride ? 'var(--accent-secondary)' : 'transparent', background: 'rgba(255,255,255,0.05)' }} onClick={() => { setSelectedDateStr(dateStr); setEventForm({ type: 'night', time: '', targetId: '', text: hasNightOverride?.text || '', targetIds: hasNightOverride?.targetIds || contacts.map(c=>c.phone), image: null }); setShowEventModal(true); }}>🌙 Boa noite</button>
-                              <button className="btn btn-outline" style={{ padding: '4px', fontSize: '0.7rem', background: 'rgba(255,255,255,0.05)' }} onClick={() => { setSelectedDateStr(dateStr); setEventForm({ type: 'custom', time: '10:00', targetId: '', text: '', targetIds: [], image: null }); setShowEventModal(true); }}>+ Extra ({dayEvents.length})</button>
+                              {dayEvents.length > 0 && <span style={{ background: 'var(--accent-color)', padding: '4px', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold' }}>{dayEvents.length} Agendamentos</span>}
                            </div>
                         </div>
                       )
@@ -511,79 +510,86 @@ function App() {
                </div>
              </section>
 
+              {showDayModal && (
+               <div className="mobile-backdrop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 900 }}>
+                 <div className="glass-card animate-in" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                     <h2>Agenda do Dia: {selectedDateStr}</h2>
+                     <button className="btn btn-outline" onClick={() => setShowDayModal(false)}>Fechar</button>
+                   </div>
+                   
+                   <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1.5rem' }} onClick={() => { setEventForm({ type: 'custom', time: '10:00', targetId: '', text: '', targetIds: [], image: null }); setShowEventModal(true); }}>
+                     + Adicionar Novo Agendamento
+                   </button>
+
+                   <div className="compact-log-list">
+                     {calendarEvents.filter(e => e.date === selectedDateStr).sort((a,b) => a.time.localeCompare(b.time)).length === 0 ? (
+                       <p style={{opacity:0.5, textAlign: 'center'}}>Você não possui compromissos agendados para este dia.</p>
+                     ) : calendarEvents.filter(e => e.date === selectedDateStr).sort((a,b) => a.time.localeCompare(b.time)).map(ev => (
+                       <div key={ev.id} className="log-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'rgba(255,255,255,0.02)' }}>
+                          <div>
+                            <strong style={{ fontSize: '1.1rem', color: 'var(--accent-color)' }}>{ev.time}</strong><br/>
+                            <span>Para: <strong>{ev.targetId}</strong></span><br/>
+                            <small style={{ opacity: 0.7, display: 'block', marginTop: '4px' }}>Texto: {ev.text || '(Apenas mídia ou vazio)'}</small>
+                            {ev.sent && <span style={{ color: 'var(--success-color)', fontSize: '0.7rem', display: 'inline-block', marginTop: '4px' }}>✓ Enviado</span>}
+                          </div>
+                          <button className="delete-btn" onClick={async () => {
+                             if(!confirm('Cancelar agendamento?')) return;
+                             try { await axios.delete(`${API_BASE}/calendar/${ev.id}`, { headers: getAuthHeader() }); fetchData(); } catch(err) { alert('Erro'); }
+                          }}><Trash2 size={16} /></button>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </div>
+              )}
+
               {showEventModal && (
                <div className="mobile-backdrop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
                  <div className="glass-card animate-in" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-                   <h2>{eventForm.type === 'custom' ? `Agendar Extra: ${selectedDateStr}` : `Editar ${eventForm.type === 'morning' ? 'Bom Dia' : 'Boa Noite'} do dia ${selectedDateStr}`}</h2>
+                   <h2>Agendar Envio: {selectedDateStr}</h2>
                    <form onSubmit={async (e) => {
                      e.preventDefault();
                      try {
                        setLoading(true);
                        const formData = new FormData();
                        formData.append('date', selectedDateStr);
-                       formData.append('type', eventForm.type);
+                       formData.append('type', 'custom');
                        formData.append('text', eventForm.text);
+                       formData.append('time', eventForm.time);
+                       formData.append('targetId', eventForm.targetId);
                        if (eventForm.image) formData.append('image', eventForm.image);
 
-                       if (eventForm.type === 'custom') {
-                           formData.append('time', eventForm.time);
-                           formData.append('targetId', eventForm.targetId);
-                           await axios.post(`${API_BASE}/calendar`, formData, { headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' } });
-                       } else {
-                           formData.append('targetIds', JSON.stringify(eventForm.targetIds));
-                           await axios.post(`${API_BASE}/calendar/override`, formData, { headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' } });
-                       }
+                       await axios.post(`${API_BASE}/calendar`, formData, { headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' } });
                        
                        alert('Salvo com sucesso!');
                        setShowEventModal(false);
                        fetchData();
                      } catch(err) { alert('Erro ao salvar'); } finally { setLoading(false); }
                    }}>
-                     {eventForm.type === 'custom' && (
-                         <>
-                             <div className="form-group"><label>Horário (HH:MM)</label><input type="time" required value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} /></div>
-                             <div className="form-group"><label>Destinatário (Contato ou Grupo)</label>
-                               <select required value={eventForm.targetId} onChange={e => setEventForm({...eventForm, targetId: e.target.value})}>
-                                 <option value="">Selecione...</option>
-                                 <optgroup label="Grupos do WhatsApp">
-                                   {groupsList.map(g => <option key={g.id} value={g.id}>{g.name} (Grupo)</option>)}
-                                 </optgroup>
-                                 <optgroup label="Meus Contatos">
-                                   {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
-                                 </optgroup>
-                               </select>
-                             </div>
-                         </>
-                     )}
-
-                     {eventForm.type !== 'custom' && (
-                         <div className="form-group">
-                             <label>Destinatários deste Envio Específico</label>
-                             <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.1)', padding: '0.5rem', borderRadius: '8px' }}>
-                                 {contacts.map(c => (
-                                     <div key={c.phone} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                         <input type="checkbox" checked={eventForm.targetIds.includes(c.phone)} onChange={(e) => {
-                                             const ids = e.target.checked ? [...eventForm.targetIds, c.phone] : eventForm.targetIds.filter(id => id !== c.phone);
-                                             setEventForm({...eventForm, targetIds: ids});
-                                         }} />
-                                         <span style={{ fontSize: '0.85rem' }}>{c.name} ({c.phone})</span>
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
-                     )}
-
-                     <div className="form-group"><label>{eventForm.type === 'custom' ? 'Texto Especial (Opcional)' : 'Substituir Texto da IA (Deixe vazio para usar IA)'}</label><textarea rows="3" value={eventForm.text} onChange={e => setEventForm({...eventForm, text: e.target.value})} /></div>
+                     <div className="form-group"><label>Horário (HH:MM)</label><input type="time" required value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} /></div>
+                     <div className="form-group"><label>Destinatário (Contato ou Grupo)</label>
+                       <select required value={eventForm.targetId} onChange={e => setEventForm({...eventForm, targetId: e.target.value})}>
+                         <option value="">Selecione...</option>
+                         <optgroup label="Grupos do WhatsApp">
+                           {groupsList.map(g => <option key={g.id} value={g.id}>{g.name} (Grupo)</option>)}
+                         </optgroup>
+                         <optgroup label="Meus Contatos">
+                           {contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
+                         </optgroup>
+                       </select>
+                     </div>
+                     <div className="form-group"><label>Texto Especial (Opcional)</label><textarea rows="3" value={eventForm.text} onChange={e => setEventForm({...eventForm, text: e.target.value})} /></div>
                      <div className="form-group"><label>Mídia (Opcional) - Imagem ou Vídeo</label><input type="file" accept="image/*,video/*" onChange={e => setEventForm({...eventForm, image: e.target.files[0]})} /></div>
                      
                      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                        <button type="button" className="btn btn-outline" onClick={() => setShowEventModal(false)} style={{ flex: 1 }}>Cancelar</button>
-                       <button type="submit" className="btn btn-primary" disabled={loading} style={{ flex: 1 }}>Confirmar</button>
+                       <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>{loading ? 'Salvando...' : 'Confirmar Agendamento'}</button>
                      </div>
                    </form>
                  </div>
                </div>
-             )}
+              )}
           </div>
         )}
 
@@ -642,19 +648,25 @@ function App() {
         {activeTab === 'settings' && (
           <div className="content-grid animate-in">
             <div className="col-8">
-              <section className="glass-card">
-                <div className="card-header"><h2><Settings size={18} /> Configurações</h2></div>
-                <div className="form-group"><label>Prompt Manhã</label><textarea rows="3" value={settings?.morningPrompt || ''} onChange={(e) => setSettings({...settings, morningPrompt: e.target.value})} /></div>
-                <div className="form-group"><label>Prompt Noite</label><textarea rows="3" value={settings?.nightPrompt || ''} onChange={(e) => setSettings({...settings, nightPrompt: e.target.value})} /></div>
+              <section className="glass-card" style={{ opacity: 0.6 }}>
+                <div className="card-header"><h2><Settings size={18} /> Automação de IA (Desativado)</h2></div>
+                <p style={{ fontSize: '0.8rem', marginBottom: '1rem', color: '#ffbeb8' }}>
+                  O disparo automático diário via IA está suspenso temporariamente. O sistema agora opera 100% via agendamentos do calendário.
+                </p>
+                <div className="form-group"><label>Prompt Manhã</label><textarea rows="3" value={settings?.morningPrompt || ''} readOnly style={{ opacity: 0.7 }} /></div>
+                <div className="form-group"><label>Prompt Noite</label><textarea rows="3" value={settings?.nightPrompt || ''} readOnly style={{ opacity: 0.7 }} /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                  <div><label>Hora Manhã</label><input type="time" value={settings?.morningTime || ''} onChange={(e) => setSettings({...settings, morningTime: e.target.value})} /></div>
-                  <div><label>Hora Noite</label><input type="time" value={settings?.nightTime || ''} onChange={(e) => setSettings({...settings, nightTime: e.target.value})} /></div>
+                  <div><label>Hora Manhã</label><input type="time" value={settings?.morningTime || ''} readOnly style={{ opacity: 0.7 }} /></div>
+                  <div><label>Hora Noite</label><input type="time" value={settings?.nightTime || ''} readOnly style={{ opacity: 0.7 }} /></div>
                 </div>
-                <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%', marginTop: '2rem' }}>Salvar Tudo</button>
               </section>
             </div>
             <div className="col-4">
-              <section className="glass-card"><div className="card-header"><h2><Globe size={18} /> Servidor</h2></div><input value={settings?.apiUrl || ''} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} /></section>
+              <section className="glass-card">
+                <div className="card-header"><h2><Globe size={18} /> Servidor</h2></div>
+                <input value={settings?.apiUrl || ''} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} />
+                <button className="btn btn-primary" onClick={saveSettings} style={{ width: '100%', marginTop: '1rem' }}>Salvar URL</button>
+              </section>
               
               <section className="glass-card" style={{ marginTop: '1.5rem' }}>
                 <div className="card-header"><h2><Trash2 size={18} /> Manutenção</h2></div>

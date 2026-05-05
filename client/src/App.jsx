@@ -374,40 +374,20 @@ function App() {
               </section>
 
               <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header"><h2><Globe size={18} /> Automação Global</h2></div>
-                <div style={{ padding: '1rem 0', textAlign: 'center' }}>
-                  <div className={`status-badge ${settings?.autoSendEnabled !== false ? 'online' : 'offline'}`} style={{ display: 'inline-flex', padding: '0.5rem 1rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                    <div className="indicator" /> {settings?.autoSendEnabled !== false ? 'Automação Ativada' : 'Automação Pausada'}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <button className="btn btn-outline" style={{ borderColor: 'var(--success-color)', color: 'var(--success-color)' }} onClick={() => toggleAutoSend(true)} disabled={settings?.autoSendEnabled !== false || loading}>
-                      Ativar
-                    </button>
-                    <button className="btn btn-outline" style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)' }} onClick={() => toggleAutoSend(false)} disabled={settings?.autoSendEnabled === false || loading}>
-                      Pausar
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header"><h2><PlayCircle size={18} /> Envio Agora</h2></div>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
-                    <option value="">Todos</option>
-                    {Array.isArray(contacts) && contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)}><Sun size={14} /> Manhã</button>
-                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ background: 'var(--accent-secondary)' }}><Moon size={14} /> Noite</button>
-                </div>
-              </section>
-              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
-                <div className="card-header"><h2><Calendar size={18} /> Agenda</h2></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div className="schedule-box"><span>{settings?.morningTime || '--:--'}</span></div>
-                  <div className="schedule-box"><span>{settings?.nightTime || '--:--'}</span></div>
+                <div className="card-header"><h2><Calendar size={18} /> Agenda de Hoje</h2></div>
+                <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                  {(() => {
+                    const d = new Date();
+                    const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    const todaysEvents = (calendarEvents || []).filter(e => e.date === todayStr).sort((a,b) => a.time.localeCompare(b.time));
+                    if (todaysEvents.length === 0) return <p style={{ fontSize: '0.8rem', opacity: 0.5, textAlign: 'center', padding: '1rem 0' }}>Sem agendamentos hoje.</p>;
+                    return todaysEvents.map(ev => (
+                      <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '0.85rem' }}>
+                        <div><strong style={{ color: 'var(--accent-color)' }}>{ev.time}</strong></div>
+                        <div style={{ opacity: 0.8, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }} title={ev.targetId}>{ev.targetId}</div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </section>
               <section className="glass-card compact-card">
@@ -662,6 +642,37 @@ function App() {
               </section>
             </div>
             <div className="col-4">
+
+              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header"><h2><Globe size={18} /> Automação Global</h2></div>
+                <div style={{ padding: '1rem 0', textAlign: 'center' }}>
+                  <div className={`status-badge ${settings?.autoSendEnabled !== false ? 'online' : 'offline'}`} style={{ display: 'inline-flex', padding: '0.5rem 1rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                    <div className="indicator" /> {settings?.autoSendEnabled !== false ? 'Automação Ativada' : 'Automação Pausada'}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <button className="btn btn-outline" style={{ borderColor: 'var(--success-color)', color: 'var(--success-color)' }} onClick={() => toggleAutoSend(true)} disabled={settings?.autoSendEnabled !== false || loading}>
+                      Ativar
+                    </button>
+                    <button className="btn btn-outline" style={{ borderColor: 'var(--danger-color)', color: 'var(--danger-color)' }} onClick={() => toggleAutoSend(false)} disabled={settings?.autoSendEnabled === false || loading}>
+                      Pausar
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section className="glass-card compact-card" style={{ marginBottom: '1.5rem' }}>
+                <div className="card-header"><h2><PlayCircle size={18} /> Envio de Teste (IA)</h2></div>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <select value={selectedTestContact} onChange={(e) => setSelectedTestContact(e.target.value)}>
+                    <option value="">Todos os Contatos (CUIDADO)</option>
+                    {Array.isArray(contacts) && contacts.map(c => <option key={c.phone} value={c.phone}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <button className="btn btn-primary" onClick={() => triggerTest('morning', selectedTestContact)}><Sun size={14} /> Manhã</button>
+                  <button className="btn btn-primary" onClick={() => triggerTest('night', selectedTestContact)} style={{ background: 'var(--accent-secondary)' }}><Moon size={14} /> Noite</button>
+                </div>
+              </section>
               <section className="glass-card">
                 <div className="card-header"><h2><Globe size={18} /> Servidor</h2></div>
                 <input value={settings?.apiUrl || ''} onChange={(e) => setSettings({...settings, apiUrl: e.target.value})} />
